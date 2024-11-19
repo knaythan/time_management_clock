@@ -1,29 +1,31 @@
-# clock/settings.py
 import json
+import os
 
 class Settings:
-    def __init__(self, filename='settings.json'):
-        self.filename = filename
-        self.default_settings = {
-            "reminder_interval": 30,  # in minutes
-            "focus_mode_shortcut": "Ctrl+Shift+F"
+    def __init__(self):
+        self.file_path = "settings.json"
+        self.data = {
+            "custom_app_names": {},
+            "autosave": True  # Default to autosave enabled
         }
-        self.settings = self.load_settings()
+        self.load()
 
-    def load_settings(self):
-        try:
-            with open(self.filename, 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return self.default_settings
+    def load(self):
+        """Load settings from a file if it exists."""
+        if os.path.exists(self.file_path):
+            with open(self.file_path, 'r') as file:
+                self.data.update(json.load(file))
 
-    def save_settings(self):
-        with open(self.filename, 'w') as f:
-            json.dump(self.settings, f, indent=4)
-
-    def get(self, key):
-        return self.settings.get(key, None)
+    def save(self):
+        """Save current settings to a file."""
+        with open(self.file_path, 'w') as file:
+            json.dump(self.data, file, indent=4)
 
     def update(self, key, value):
-        self.settings[key] = value
-        self.save_settings()
+        """Update a setting and save it."""
+        self.data[key] = value
+        self.save()
+
+    def get(self, key):
+        """Retrieve a setting value."""
+        return self.data.get(key, None)
