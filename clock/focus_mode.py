@@ -3,6 +3,7 @@ from pystray import Icon, Menu, MenuItem
 from PIL import Image, ImageDraw
 import tkinter as tk
 import threading
+import platform
 
 class FocusMode:
     def __init__(self, root):
@@ -29,6 +30,9 @@ class FocusMode:
 
     def create_tray_icon(self):
         """Create a system tray icon with menu options."""
+        if platform.system() == "Darwin":
+            print("Tray icon functionality is not supported on macOS.")
+            return
         icon_image = self._create_icon_image()
         menu = Menu(
             MenuItem("Open", self._restore_from_tray),
