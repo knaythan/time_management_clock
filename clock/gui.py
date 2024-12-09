@@ -7,6 +7,7 @@ from app_monitor import AppMonitor
 from settings import Settings
 from calendar_view import CalendarView
 import sqlite3
+import platform
 
 class SmartClockApp:
     def __init__(self, root):
@@ -21,7 +22,10 @@ class SmartClockApp:
         self.dashboard = ProductivityDashboard(self.root, self.app_monitor, self.rename_app)
         self.calendar_view = CalendarView(self.root, self.show_dashboard)
 
-        self.db_path = os.path.join(os.path.dirname(__file__), '../db/usage_data.db')
+        if platform.system() == "Windows":
+            self.db_path = os.path.join(os.path.dirname(__file__), '../db/usage_data.db')
+        elif platform.system() == "Darwin":
+            self.db_path = os.path.expanduser("~/Library/Application Support/SmartClock/db/usage_data.db")
 
         # Start monitoring
         self.app_monitor.start_monitoring()

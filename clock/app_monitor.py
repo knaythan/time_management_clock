@@ -1,8 +1,14 @@
 # clock/app_monitor.py
 import time
 import psutil
-import win32gui  # To get the active window title
-import win32process  # To get process ID from window
+import platform
+
+if platform.system() == "Windows":
+    import win32gui
+    import win32process
+elif platform.system() == "Darwin":
+    from AppKit import NSWorkspace
+    import Quartz
 from threading import Thread
 
 class AppMonitor:
@@ -31,11 +37,15 @@ class AppMonitor:
     def _get_focused_app(self):
         """Get the name of the currently focused application."""
         try:
-            hwnd = win32gui.GetForegroundWindow()
-            _, pid = win32process.GetWindowThreadProcessId(hwnd)
-            for proc in psutil.process_iter(['pid', 'name']):
-                if proc.info['pid'] == pid:
-                    return proc.info['name']
+            if platform.system() == "Windows":
+                hwnd = win32gui.GetForegroundWindow()
+                _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                for proc in psutil.process_iter(['pid', 'name']):
+                    if proc.info['pid'] == pid:
+                        return proc.info['name']
+            elif platform.system() == "Darwin":
+                active_app = NSWorkspace.sharedWorkspace().frontmostApplication()
+                return active_app.localizedName()
         except Exception as e:
             print(f"Error detecting focused app: {e}")
         return None
