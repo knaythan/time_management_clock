@@ -1,5 +1,5 @@
-import tkinter as tk
-from tkinter import ttk, simpledialog
+import customtkinter as ctk
+from tkinter import ttk
 
 class ProductivityDashboard:
     def __init__(self, root, app_monitor, rename_callback):
@@ -11,10 +11,27 @@ class ProductivityDashboard:
 
     def display(self, parent_frame):
         """Display the dashboard with a tree view of focused app times."""
-        self.tree = ttk.Treeview(parent_frame, columns=('App', 'Time (s)'), show='headings', selectmode="browse")
+        style = ttk.Style()
+        style.theme_use("clam")  # Use a theme that allows customization
+        style.configure("Treeview", 
+                        background="#333333", 
+                        foreground="white", 
+                        fieldbackground="#333333", 
+                        font=("Arial", 12),
+                        borderwidth=0,  # Remove border
+                        highlightthickness=0)  # Remove highlight border
+        style.configure("Treeview.Heading", 
+                        background="#444444", 
+                        foreground="white", 
+                        font=("Arial", 12, "bold"))
+        style.map('Treeview', background=[('selected', '#555555')], foreground=[('selected', 'grey')])
+
+        parent_frame.configure(bg="#222222")  # Set background color of parent frame
+
+        self.tree = ttk.Treeview(parent_frame, columns=('App', 'Time (s)'), show='headings', selectmode="browse", style="Treeview")
         self.tree.heading('App', text='Application')
         self.tree.heading('Time (s)', text='Focus Time (s)')
-        self.tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.tree.pack(fill=ctk.BOTH, expand=True, padx=10, pady=10)
 
         self.tree.bind("<Double-1>", self.edit_name)
         self.update_dashboard()  # Start periodic updates
@@ -46,7 +63,7 @@ class ProductivityDashboard:
             return
 
         old_name = self.tree.item(selected_item, 'values')[0]
-        new_name = simpledialog.askstring("Rename Application", f"Rename '{old_name}' to:")
+        new_name = ctk.CTkInputDialog(text=f"Rename '{old_name}' to:", title="Rename Application").get_input()
         
         if new_name and new_name.strip():
             new_name = new_name.strip()

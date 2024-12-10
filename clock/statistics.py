@@ -1,5 +1,4 @@
-import tkinter as tk
-from tkinter import ttk
+import customtkinter as ctk
 import sqlite3
 from datetime import timedelta, date
 
@@ -9,23 +8,23 @@ class Statistics:
         self.db_path = 'db/usage_data.db'
 
     def show_statistics(self):
-        stats_window = tk.Toplevel(self.root)
+        stats_window = ctk.CTkToplevel(self.root)
         stats_window.title("Statistics")
         stats_window.geometry("600x500")
 
-        ttk.Label(stats_window, text="Statistics Options").pack()
+        ctk.CTkLabel(stats_window, text="Statistics Options").pack()
 
-        frame = ttk.Frame(stats_window)
+        frame = ctk.CTkFrame(stats_window)
         frame.pack(pady=10)
-        label = ttk.Label(stats_window)
+        label = ctk.CTkLabel(stats_window)
         label.pack()
 
-        self.period = ttk.Combobox(frame, values=["last day", "week", "month", "year", "custom"])
-        self.period.pack(side=tk.LEFT)
-        button = ttk.Button(frame, text="Load Stats")
-        button.pack(side=tk.LEFT)
+        self.period = ctk.CTkComboBox(frame, values=["last day", "week", "month", "year", "custom"])
+        self.period.pack(side=ctk.LEFT)
+        button = ctk.CTkButton(frame, text="Load Stats")
+        button.pack(side=ctk.LEFT)
 
-        button.config(command=lambda: self.show(label))
+        button.configure(command=lambda: self.show(label))
 
     def show(self, label):
         conn = sqlite3.connect(self.db_path)
@@ -37,4 +36,4 @@ class Statistics:
 
         data = conn.execute("SQL Query")  # Get custom data
         conn.close()
-        label.config(text=str(data))
+        label.configure(text=str(data))
