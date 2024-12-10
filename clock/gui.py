@@ -1,6 +1,5 @@
 import os
-import tkinter as tk
-from tkinter import ttk, messagebox
+import customtkinter as ctk
 from dashboard import ProductivityDashboard
 from focus_mode import FocusMode
 from app_monitor import AppMonitor
@@ -40,14 +39,14 @@ class SmartClockApp:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        ttk.Label(self.root, text="Dashboard", font=("Arial", 16)).pack(pady=10)
+        ctk.CTkLabel(self.root, text="Dashboard", font=("Arial", 16)).pack(pady=10)
         self.dashboard.display(self.root)  # Render the Dashboard
 
-        button_frame = ttk.Frame(self.root)
+        button_frame = ctk.CTkFrame(self.root)
         button_frame.pack(pady=10)
 
-        ttk.Button(button_frame, text="Open Calendar", command=self.open_calendar).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Settings", command=self.open_settings).pack(side=tk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Open Calendar", command=self.open_calendar).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Settings", command=self.open_settings).pack(side=ctk.LEFT, padx=5)
 
     def open_calendar(self):
         """Navigate to the Calendar View and stop dashboard updates."""
@@ -60,17 +59,17 @@ class SmartClockApp:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        ttk.Label(self.root, text="Settings", font=("Arial", 16)).pack(pady=10)
+        ctk.CTkLabel(self.root, text="Settings", font=("Arial", 16)).pack(pady=10)
 
-        autosave_var = tk.BooleanVar(value=self.settings.get("autosave"))
-        ttk.Checkbutton(self.root, text="Enable Autosave", variable=autosave_var).pack(pady=5)
+        autosave_var = ctk.BooleanVar(value=self.settings.get("autosave"))
+        ctk.CTkCheckBox(self.root, text="Enable Autosave", variable=autosave_var).pack(pady=5)
 
-        button_frame = ttk.Frame(self.root)
+        button_frame = ctk.CTkFrame(self.root)
         button_frame.pack(pady=10)
 
-        ttk.Button(button_frame, text="Save", command=lambda: self.save_settings(autosave_var, save_only=True)).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Exit", command=self.show_dashboard).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Save and Exit", command=lambda: self.save_settings(autosave_var, save_only=False)).pack(side=tk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Save", command=lambda: self.save_settings(autosave_var, save_only=True)).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Exit", command=self.show_dashboard).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Save and Exit", command=lambda: self.save_settings(autosave_var, save_only=False)).pack(side=ctk.LEFT, padx=5)
 
     def save_settings(self, autosave_var, save_only):
         """Save settings and optionally return to dashboard."""
@@ -105,10 +104,10 @@ class SmartClockApp:
         conn.close()
 
     def run(self):
-        """Start the Tkinter main loop."""
+        """Start the customtkinter main loop."""
         self.root.mainloop()
 
 if __name__ == "__main__":
-    root = tk.Tk()
+    root = ctk.CTk()
     app = SmartClockApp(root)
     app.run()

@@ -1,5 +1,6 @@
 psutil
 Pillow
 pystray
+customtkinter
 pyobjc; sys_platform == 'darwin'
 pywin32; sys_platform == 'win32'

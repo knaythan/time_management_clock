@@ -1,9 +1,9 @@
-import tkinter as tk
+import customtkinter as ctk
 from tkinter import ttk
 import sqlite3
 from datetime import date, timedelta
 import os
-import calendar
+import calendar  # Import calendar module
 
 class CalendarView:
     def __init__(self, root, back_callback):
@@ -19,60 +19,66 @@ class CalendarView:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        ttk.Label(self.root, text="Calendar View", font=("Arial", 14)).pack(pady=10)
+        self.root.configure(bg="#222222")  # Set background color of root window
+
+        ctk.CTkLabel(self.root, text="Calendar View", font=("Arial", 14)).pack(pady=10)
 
         # Navigation Controls
-        nav_frame = ttk.Frame(self.root)
+        nav_frame = ctk.CTkFrame(self.root)
         nav_frame.pack(pady=10)
 
-        self.previous_button = ttk.Button(nav_frame, text="◀", command=self.previous_day)
-        self.previous_button.pack(side=tk.LEFT, padx=10)
+        self.previous_button = ctk.CTkButton(nav_frame, text="◀", command=self.previous_day)
+        self.previous_button.pack(side=ctk.LEFT, padx=10)
         
-        self.date_label = ttk.Label(nav_frame, text=self.current_date.isoformat())
-        self.date_label.pack(side=tk.LEFT, padx=10)
+        self.date_label = ctk.CTkLabel(nav_frame, text=self.current_date.isoformat())
+        self.date_label.pack(side=ctk.LEFT, padx=10)
         
-        self.next_button = ttk.Button(nav_frame, text="▶", command=self.next_day)
-        self.next_button.pack(side=tk.LEFT, padx=10)
+        self.next_button = ctk.CTkButton(nav_frame, text="▶", command=self.next_day)
+        self.next_button.pack(side=ctk.LEFT, padx=10)
 
         if self.current_date == date.today():
-            self.next_button.state(["disabled"])
+            self.next_button.configure(state="disabled")
 
         # TreeView for daily data
-        self.tree = ttk.Treeview(self.root, columns=('App', 'Time (s)'), show='headings')
+        style = ttk.Style()
+        style.theme_use("clam")  # Use a theme that allows customization
+        style.configure("Treeview", 
+                        background="#333333", 
+                        foreground="white", 
+                        fieldbackground="#333333", 
+                        font=("Arial", 12),
+                        borderwidth=0,  # Remove border
+                        highlightthickness=0)  # Remove highlight border
+        style.configure("Treeview.Heading", 
+                        background="#444444", 
+                        foreground="white", 
+                        font=("Arial", 12, "bold"))
+        style.map('Treeview', background=[('selected', '#555555')], foreground=[('selected', 'white')])
+
+        self.tree = ttk.Treeview(self.root, columns=('App', 'Time (s)'), show='headings', style="Treeview")
         self.tree.heading('App', text='Application')
         self.tree.heading('Time (s)', text='Focus Time (s)')
-        self.tree.pack(fill=tk.BOTH, expand=True, pady=10)
+        self.tree.pack(fill=ctk.BOTH, expand=True, pady=10)
 
-        button_frame = ttk.Frame(self.root)
+        button_frame = ctk.CTkFrame(self.root)
         button_frame.pack(pady=10)
 
-        ttk.Button(button_frame, text="Monthly View", command=self.show_monthly_view).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Back to Dashboard", command=self.back_callback).pack(side=tk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Back to Dashboard", command=self.back_callback).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Monthly View", command=self.show_monthly_view).pack(side=ctk.LEFT, padx=5)  # Add button for monthly view
 
         self.update_data()
 
     def show_monthly_view(self):
-        """Override with Monthly View."""
+        """Override the current window with the Monthly View."""
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        ttk.Label(self.root, text="Monthly View", font=("Arial", 14)).pack(pady=10)
+        ctk.CTkLabel(self.root, text="Monthly View", font=("Arial", 14)).pack(pady=10)
 
-        nav_frame = ttk.Frame(self.root)
+        nav_frame = ctk.CTkFrame(self.root)
         nav_frame.pack(pady=10)
 
-        ttk.Button(nav_frame, text="◀", command=self.previous_month).pack(side=tk.LEFT, padx=10)
-        self.month_label = ttk.Label(nav_frame, text=f"{calendar.month_name[self.current_date.month]} {self.current_date.year}")
-        self.month_label.pack(side=tk.LEFT, padx=10)
-        ttk.Button(nav_frame, text="▶", command=self.next_month).pack(side=tk.LEFT, padx=10)
-
-        self.days_frame = ttk.Frame(self.root)
-        self.days_frame.pack(expand=True, fill=tk.BOTH)
-
-        self.display_month_calendar()
-
-        ttk.Button(self.root, text="Back to Calendar", command=self.show_calendar).pack(pady=10)
-
+        ctk.CTkButton(nav_frame, text="◀", command=self.previous_month).pack(side=ctk.LEFT, padx=10)
     def display_month_calendar(self):
         """Display a month calendar inline with color-coded days based on data availability."""
         for widget in self.days_frame.winfo_children():
@@ -80,7 +86,7 @@ class CalendarView:
 
         # Create day-of-week headers
         for col, day in enumerate(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']):
-            ttk.Label(self.days_frame, text=day, anchor='center', width=10).grid(row=0, column=col, padx=5, pady=5)
+            ctk.CTkLabel(self.days_frame, text=day, anchor='center', width=10).grid(row=0, column=col, padx=5, pady=5)
 
         cal = calendar.Calendar(firstweekday=0)
         month_days = cal.monthdayscalendar(self.current_date.year, self.current_date.month)
@@ -95,11 +101,13 @@ class CalendarView:
 
                 # Color-code days based on whether they have data
                 bg_color = "#A9A9A9" if has_data else "#FFFFFF"
+                text_color = "#000000"  # Set text color to black
 
-                day_button = tk.Button(
+                day_button = ctk.CTkButton(
                     self.days_frame,
                     text=str(day),
-                    bg=bg_color,
+                    fg_color=bg_color,
+                    text_color=text_color,  # Set text color
                     command=lambda d=day: self.select_date(d)
                 )
                 day_button.grid(row=row, column=col, padx=5, pady=5)
@@ -125,18 +133,18 @@ class CalendarView:
         """Navigate to the previous day."""
         self.current_date -= timedelta(days=1)
         self.update_data()
-        self.date_label.config(text=self.current_date.isoformat())
-        self.next_button.state(["!disabled"])
+        self.date_label.configure(text=self.current_date.isoformat())
+        self.next_button.configure(state="normal")
         if self.current_date == self.min_date:
-            self.previous_button.state(["disabled"])
+            self.previous_button.configure(state="disabled")
 
     def next_day(self):
         """Navigate to the next day."""
         self.current_date += timedelta(days=1)
         self.update_data()
-        self.date_label.config(text=self.current_date.isoformat())
-        if self.current_date == date.today():
-            self.next_button.state(["disabled"])
+        self.date_label.configure(text=self.current_date.isoformat())
+        if (self.current_date == date.today()):
+            self.next_button.configure(state="disabled")
 
     def previous_month(self):
         """Navigate to the previous month."""
