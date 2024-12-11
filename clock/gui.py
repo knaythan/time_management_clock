@@ -45,8 +45,7 @@ class SmartClockApp:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        ctk.CTkLabel(self.root, text="Dashboard", font=("Arial", 16)).pack(pady=10)
-        self.dashboard.display(self.root)  # Render the Dashboard
+        self.dashboard.display()  # Render the Dashboard
 
         button_frame = ctk.CTkFrame(self.root)
         button_frame.pack(pady=10)
@@ -236,8 +235,34 @@ class SmartClockApp:
             )
             """
         )
+        # cursor.execute(
+        #     """DROP TABLE IF EXISTS schedule_times;"""
+        # )
+        # cursor.execute(
+        #     """DROP TABLE IF EXISTS schedule;"""
+        # )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS schedule_times (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                next_id INTEGER,
+                type TEXT NOT NULL,
+                duration INTEGER NOT NULL,
+                FOREIGN KEY(next_id) REFERENCES schedule(id)
+          )
+            """
+        )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS schedule (
+                name TEXT PRIMARY KEY,
+                id INTEGER,
+                FOREIGN KEY(id) REFERENCES schedule_times(schedule_id)
+            )
+            """
+        )
         conn.commit()
-        cursor.execute("SELECT * FROM classify_app;")
+        cursor.execute("SELECT * FROM schedule_times;")
         apps = cursor.fetchall()
         print(apps)
         conn.close()
