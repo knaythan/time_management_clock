@@ -149,21 +149,25 @@ class CalendarView:
             self.tree.insert('', 'end', values=(app, time))
 
     def previous_day(self):
-        """Navigate to the previous day."""
-        self.current_date -= timedelta(days=1)
-        self.update_data()
-        self.date_label.configure(text=self.current_date.isoformat())
-        self.next_button.configure(state="normal")
-        if self.current_date == self.min_date:
-            self.previous_button.configure(state="disabled")
+        if self.current_date > self.min_date:
+            self.current_date -= timedelta(days=1)
+            self.update_data()
+            self.date_label.configure(text=self.current_date.isoformat())
+    
+    # Update button states
+        self.previous_button.configure(state="normal" if self.current_date > self.min_date else "disabled")
+        self.next_button.configure(state="normal" if self.current_date < date.today() else "disabled")
 
     def next_day(self):
-        """Navigate to the next day."""
-        self.current_date += timedelta(days=1)
-        self.update_data()
-        self.date_label.configure(text=self.current_date.isoformat())
-        if (self.current_date == date.today()):
-            self.next_button.configure(state="disabled")
+        if self.current_date < date.today():
+            self.current_date += timedelta(days=1)
+            self.update_data()
+            self.date_label.configure(text=self.current_date.isoformat())
+        
+        # Update button states
+        self.previous_button.configure(state="normal" if self.current_date > self.min_date else "disabled")
+        self.next_button.configure(state="normal" if self.current_date < date.today() else "disabled")
+
 
     def previous_month(self):
         """Navigate to the previous month."""
