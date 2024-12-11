@@ -6,6 +6,9 @@
     "short_break": 5,
     "long_break": 15,
     "long_break_interval": 4,
-    "theme": "blue",
-    "mode": "Light"
+    "theme": "green",
+    "mode": "Light",
+    "dynamic_schedule": "pomodoro",
+    "response_type": 1,
+    "reminder": "low"
 }

@@ -11,6 +11,7 @@ class ProductivityDashboard:
         self.update_job = None  # To track scheduled updates
         self.db_path = db_path  # Add db_path attribute
         self.viewing_total_times = False  # Track if viewing total times
+        self.scheduler_window = None  # Track the scheduler window
 
     def display(self, parent_frame):
         """Display the dashboard with a tree view of focused app times."""
@@ -23,6 +24,7 @@ class ProductivityDashboard:
 
         ctk.CTkButton(self.button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(self.button_frame, text="View Total Times", command=self.view_total_times).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Scheduler", command=self.open_scheduler).pack(side=ctk.LEFT, padx=5)
 
         self.display_times()  # Start periodic updates
 
@@ -166,6 +168,91 @@ class ProductivityDashboard:
         # Add original buttons
         ctk.CTkButton(self.button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(self.button_frame, text="View Total Times", command=self.view_total_times).pack(side=ctk.LEFT, padx=5)
+
+    def open_scheduler(self):
+        """Open the scheduler window to manage tasks."""
+        if self.scheduler_window is not None and self.scheduler_window.winfo_exists():
+            self.scheduler_window.lift()
+            return
+
+        self.scheduler_window = ctk.CTkToplevel(self.root)
+        self.scheduler_window.title("Task Scheduler")
+        self.scheduler_window.geometry("600x400")
+
+        ctk.CTkLabel(self.scheduler_window, text="Task Scheduler", font=("Arial", 16)).pack(pady=10)
+
+        self.task_tree = ttk.Treeview(self.scheduler_window, columns=('Task', 'Expected Duration (min)'), show='headings', selectmode="browse", style="Treeview")
+        self.task_tree.heading('Task', text='Task')
+        self.task_tree.heading('Expected Duration (min)', text='Expected Duration (min)')
+        self.task_tree.pack(fill=ctk.BOTH, expand=True, padx=10, pady=10)
+
+        self.load_tasks()
+
+        button_frame = ctk.CTkFrame(self.scheduler_window)
+        button_frame.pack(pady=10)
+
+        ctk.CTkButton(button_frame, text="Add Task", command=self.add_task).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Edit Task", command=self.edit_task).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Remove Task", command=self.remove_task).pack(side=ctk.LEFT, padx=5)
+
+    def load_tasks(self):
+        """Load tasks from the settings and display them in the tree view."""
+        self.task_tree.delete(*self.task_tree.get_children())  # Clear existing data
+
+        dynamic_schedule = self.app_monitor.settings.get_dynamic_schedule()
+        tasks = dynamic_schedule.get('tasks', {})
+
+        for task, settings in tasks.items():
+            expected_duration = settings.get('expected_duration', 25)
+            self.task_tree.insert('', 'end', values=(task, expected_duration))
+
+    def add_task(self):
+        """Add a new task to the scheduler."""
+        task_name = ctk.CTkInputDialog(text="Enter task name:", title="Add Task").get_input()
+        if task_name and task_name.strip():
+            task_name = task_name.strip()
+            expected_duration = ctk.CTkInputDialog(text="Enter expected duration (minutes):", title="Add Task").get_input()
+            if expected_duration and expected_duration.isdigit():
+                expected_duration = int(expected_duration)
+                dynamic_schedule = self.app_monitor.settings.get_dynamic_schedule()
+                if 'tasks' not in dynamic_schedule:
+                    dynamic_schedule['tasks'] = {}
+                dynamic_schedule['tasks'][task_name] = {'expected_duration': expected_duration}
+                self.app_monitor.settings.update_dynamic_schedule('tasks', dynamic_schedule['tasks'])
+                self.load_tasks()
+
+    def edit_task(self):
+        """Edit the selected task in the scheduler."""
+        selected_item = self.task_tree.focus()
+        if not selected_item:
+            return
+
+        task_name = self.task_tree.item(selected_item, 'values')[0]
+        new_task_name = ctk.CTkInputDialog(text=f"Rename '{task_name}' to:", title="Edit Task").get_input()
+        if new_task_name and new_task_name.strip():
+            new_task_name = new_task_name.strip()
+            expected_duration = ctk.CTkInputDialog(text="Enter expected duration (minutes):", title="Edit Task").get_input()
+            if expected_duration and expected_duration.isdigit():
+                expected_duration = int(expected_duration)
+                dynamic_schedule = self.app_monitor.settings.get_dynamic_schedule()
+                if 'tasks' in dynamic_schedule:
+                    dynamic_schedule['tasks'].pop(task_name, None)
+                    dynamic_schedule['tasks'][new_task_name] = {'expected_duration': expected_duration}
+                    self.app_monitor.settings.update_dynamic_schedule('tasks', dynamic_schedule['tasks'])
+                    self.load_tasks()
+
+    def remove_task(self):
+        """Remove the selected task from the scheduler."""
+        selected_item = self.task_tree.focus()
+        if not selected_item:
+            return
+
+        task_name = self.task_tree.item(selected_item, 'values')[0]
+        dynamic_schedule = self.app_monitor.settings.get_dynamic_schedule()
+        if 'tasks' in dynamic_schedule:
+            dynamic_schedule['tasks'].pop(task_name, None)
+            self.app_monitor.settings.update_dynamic_schedule('tasks', dynamic_schedule['tasks'])
+            self.load_tasks()
 
 def format_time(seconds):
     """Convert time in seconds to a human-readable format."""
