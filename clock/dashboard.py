@@ -2,12 +2,13 @@ import customtkinter as ctk
 from tkinter import ttk
 
 class ProductivityDashboard:
-    def __init__(self, root, app_monitor, rename_callback):
+    def __init__(self, root, app_monitor, rename_callback, db_path):
         self.root = root
         self.app_monitor = app_monitor
         self.tree = None
         self.rename_callback = rename_callback
         self.update_job = None  # To track scheduled updates
+        self.db_path = db_path  # Add db_path attribute
 
     def display(self, parent_frame):
         """Display the dashboard with a tree view of focused app times."""
@@ -34,7 +35,17 @@ class ProductivityDashboard:
         self.tree.pack(fill=ctk.BOTH, expand=True, padx=10, pady=10)
 
         self.tree.bind("<Double-1>", self.edit_name)
+
+        button_frame = ctk.CTkFrame(parent_frame)
+        button_frame.pack(pady=10)
+
+        ctk.CTkButton(button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
+
         self.update_dashboard()  # Start periodic updates
+
+    def save_focus_times(self):
+        """Save the focus times to the database."""
+        self.app_monitor.save_focus_times(self.db_path)
 
     def update_dashboard(self):
         """Update the dashboard tree view with current data."""

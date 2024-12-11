@@ -40,17 +40,23 @@ class FocusMode:
         )
 
         self.tray_icon = Icon("Smart Clock", icon_image, "Smart Clock", menu)
-        
-        # Run the tray icon in a separate thread to prevent blocking the main loop
-        tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
-        tray_thread.start()
+        self.tray_icon.run_detached()
+        self.tray_icon.icon = icon_image
+        self.tray_icon.visible = True
+        self.tray_icon.menu = menu
+        self.tray_icon.run_detached()
+        self.tray_icon._icon._menu = menu  # Ensure the menu is set
+        self.tray_icon._icon._on_left_click = self._restore_from_tray  # Handle left-click event
 
     def _create_icon_image(self):
-        """Create a simple icon for the system tray."""
+        """Create a simple icon for the system tray with a transparent background and a larger clock."""
         icon_size = 64
-        image = Image.new('RGB', (icon_size, icon_size), color=(255, 255, 255))
+        image = Image.new('RGBA', (icon_size, icon_size), (0, 0, 0, 0))  # Transparent background
         draw = ImageDraw.Draw(image)
-        draw.rectangle((16, 16, 48, 48), fill=(0, 0, 255))  # Blue square
+        draw.ellipse((0, 0, icon_size, icon_size), fill=(255, 255, 255))  # Clock face
+        draw.ellipse((0, 0, icon_size, icon_size), outline=(0, 0, 0), width=2)  # Larger clock face
+        draw.line((32, 32, 32, 16), fill=(0, 0, 0), width=2)  # Minute hand
+        draw.line((32, 32, 48, 32), fill=(0, 0, 0), width=2)  # Hour hand   
         return image
 
     def _restore_from_tray(self, icon=None, item=None):
