@@ -1,13 +1,19 @@
-# clock/main.py
 from gui import SmartClockApp
 import customtkinter as ctk
-from PIL import Image, ImageTk, ImageDraw  # Import ImageDraw
+from PIL import Image, ImageTk, ImageDraw
 import os
 import platform
+from settings import Settings  # Import the Settings class
 
 def main():
-    ctk.set_appearance_mode("System")  # Modes: "System" (default), "Dark", "Light"
-    ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue")
+    # Load stored theme and mode
+    settings = Settings()
+    theme = settings.get("theme")   # Default to "blue" if not set
+    mode = settings.get("mode")  # Default to "Light" if not set
+
+    # Apply the theme and mode
+    ctk.set_default_color_theme(theme)
+    ctk.set_appearance_mode(mode)
     
     root = ctk.CTk()
     
