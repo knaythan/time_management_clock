@@ -17,7 +17,10 @@ class FocusMode:
             return
         self.is_active = True
         self.root.withdraw()  # Hide the main window
-        self.create_tray_icon()
+        if platform.system() == "Darwin":
+            self.create_mac_tray_icon()
+        else:
+            self.create_tray_icon()
         self.root.after(interval * 60 * 1000, self.deactivate)  # Reopen after interval minutes
 
     def deactivate(self):
@@ -31,9 +34,6 @@ class FocusMode:
 
     def create_tray_icon(self):
         """Create a system tray icon with menu options."""
-        if platform.system() == "Darwin":
-            print("Tray icon functionality is not supported on macOS.")
-            return
         icon_image = self._create_icon_image()
         menu = Menu(
             MenuItem("Open", self._restore_from_tray),
@@ -48,6 +48,17 @@ class FocusMode:
         self.tray_icon.run_detached()
         self.tray_icon._icon._menu = menu  # Ensure the menu is set
         self.tray_icon._icon._on_left_click = self._restore_from_tray  # Handle left-click event
+
+    def create_mac_tray_icon(self):
+        """Create a macOS-specific tray icon with menu options."""
+        icon_image = self._create_icon_image()
+        menu = Menu(
+            MenuItem("Open", self._restore_from_tray),
+            MenuItem("Exit", self._exit_app)
+        )
+
+        self.tray_icon = Icon("Smart Clock", icon_image, "Smart Clock", menu)
+        threading.Thread(target=self.tray_icon.run).start()
 
     def _create_icon_image(self):
         """Create a simple icon for the system tray with a transparent background and a larger clock."""

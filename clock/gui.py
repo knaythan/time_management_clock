@@ -52,6 +52,11 @@ class SmartClockApp:
 
         ctk.CTkButton(button_frame, text="Open Calendar", command=self.open_calendar).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(button_frame, text="Settings", command=self.open_settings).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Activate Focus Mode", command=self.activate_focus_mode).pack(side=ctk.LEFT, padx=5)
+
+    def activate_focus_mode(self):
+        """Activate focus mode."""
+        self.focus_mode.activate()
 
     def open_calendar(self):
         """Navigate to the Calendar View and stop dashboard updates."""
