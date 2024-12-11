@@ -26,9 +26,9 @@ class Settings:
         self.data[key] = value
         self.save()
         
-    def get(self, key):
-        """Retrieve a setting value."""
-        return self.data.get(key, None)
+    def get(self, key, default=None):
+        """Retrieve a setting value, returning a default if not found."""
+        return self.data.get(key, default)
 
     def get_dynamic_schedule(self):
         """Retrieve dynamic schedule settings."""

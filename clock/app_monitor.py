@@ -18,7 +18,7 @@ import os
 from distraction import DetectDistraction
 
 class AppMonitor:
-    def __init__(self, title, db_path):
+    def __init__(self, title, db_path, afk_threshold):
         self.app_times = {}  # {app_name: time_in_seconds}
         self.title = title
         self.db_path = db_path
@@ -27,7 +27,7 @@ class AppMonitor:
         self.monitoring = False
         self.afk_detection = False
         self.last_activity_time = time.time()
-        self.afk_threshold = 3  # 10 seconds of inactivity
+        self.afk_threshold = afk_threshold  # Set AFK threshold from settings
         self.afk_app_name = "afk_time"
 
     def start_monitoring(self):
