@@ -24,7 +24,7 @@ class AppMonitor:
         self.monitoring = False
         self.afk_detection = False
         self.last_activity_time = time.time()
-        self.afk_threshold = 10  # 10 seconds of inactivity
+        self.afk_threshold = 3  # 10 seconds of inactivity
         self.afk_app_name = "afk_time"
 
     def start_monitoring(self):
@@ -53,8 +53,8 @@ class AppMonitor:
         with keyboard.Listener(on_press=on_activity), mouse.Listener(on_click=on_activity, on_move=on_activity):
             while self.afk_detection:
                 if time.time() - self.last_activity_time > self.afk_threshold:
-                    self._update_app_time(self.afk_app_name)  # Start counting AFK time
                     self.current_app = self.afk_app_name  # Set current app to AFK
+                    self._update_app_time(self.afk_app_name)  # Start counting AFK time
                 time.sleep(1)
 
     def _monitor_loop(self):
@@ -150,7 +150,8 @@ class AppMonitor:
         """Update the focus time for the given application."""
         if app_name != self.current_app:
             self.current_app = app_name
-        self.app_times[app_name] = self.app_times.get(app_name, 0) + 1
+        elif app_name == self.current_app:
+            self.app_times[app_name] = self.app_times.get(app_name, 0) + 1
 
     def get_app_times(self):
         """Return the accumulated focus times for each application."""
