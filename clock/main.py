@@ -39,7 +39,6 @@ def main():
         # Set the custom icon
         root.iconbitmap(icon_path)  # Set the custom icon
 
-
     app = SmartClockApp(root)
     app.run()
 
