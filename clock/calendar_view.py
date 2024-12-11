@@ -73,12 +73,25 @@ class CalendarView:
         for widget in self.root.winfo_children():
             widget.destroy()
 
+        self.root.configure(bg="#222222")  # Set background color of root window
+
         ctk.CTkLabel(self.root, text="Monthly View", font=("Arial", 14)).pack(pady=10)
 
         nav_frame = ctk.CTkFrame(self.root)
         nav_frame.pack(pady=10)
 
         ctk.CTkButton(nav_frame, text="◀", command=self.previous_month).pack(side=ctk.LEFT, padx=10)
+        self.month_label = ctk.CTkLabel(nav_frame, text=f"{calendar.month_name[self.current_date.month]} {self.current_date.year}")
+        self.month_label.pack(side=ctk.LEFT, padx=10)
+        ctk.CTkButton(nav_frame, text="▶", command=self.next_month).pack(side=ctk.LEFT, padx=10)
+
+        self.days_frame = ctk.CTkFrame(self.root)
+        self.days_frame.pack(expand=True, fill=ctk.BOTH)
+
+        self.display_month_calendar()
+
+        ctk.CTkButton(self.root, text="Back to Calendar", command=self.show_calendar).pack(pady=10)
+
     def display_month_calendar(self):
         """Display a month calendar inline with color-coded days based on data availability."""
         for widget in self.days_frame.winfo_children():
@@ -110,7 +123,13 @@ class CalendarView:
                     text_color=text_color,  # Set text color
                     command=lambda d=day: self.select_date(d)
                 )
-                day_button.grid(row=row, column=col, padx=5, pady=5)
+                day_button.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
+
+        # Make the calendar responsive
+        for i in range(7):
+            self.days_frame.grid_columnconfigure(i, weight=1)
+        for i in range(len(month_days) + 1):
+            self.days_frame.grid_rowconfigure(i, weight=1)
 
     def select_date(self, day):
         """Handle date selection in monthly view."""

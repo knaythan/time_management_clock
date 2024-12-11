@@ -2,6 +2,8 @@
 import time
 import psutil
 import platform
+import sqlite3
+from datetime import date
 
 if platform.system() == "Windows":
     import win32gui
@@ -59,3 +61,16 @@ class AppMonitor:
     def get_app_times(self):
         """Return the accumulated focus times for each application."""
         return {app: time for app, time in sorted(self.app_times.items(), key=lambda x: -x[1])}
+
+    def save_focus_times(self, db_path):
+        """Save the accumulated focus times to the database."""
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        for app_name, focus_time in self.app_times.items():
+            cursor.execute("""
+                INSERT INTO usage_data (date, app_name, focus_time)
+                VALUES (?, ?, ?)
+                ON CONFLICT(date, app_name) DO UPDATE SET focus_time = focus_time + excluded.focus_time
+            """, (date.today().isoformat(), app_name, focus_time))
+        conn.commit()
+        conn.close()

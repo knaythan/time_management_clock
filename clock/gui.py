@@ -18,17 +18,22 @@ class SmartClockApp:
         self.settings = Settings()
         self.app_monitor = AppMonitor()
         self.focus_mode = FocusMode(self.root)
-        self.dashboard = ProductivityDashboard(self.root, self.app_monitor, self.rename_app)
-        self.calendar_view = CalendarView(self.root, self.show_dashboard)
-
         if platform.system() == "Windows":
             self.db_path = os.path.join(os.path.dirname(__file__), '../db/usage_data.db')
         elif platform.system() == "Darwin":
             self.db_path = os.path.expanduser("~/Library/Application Support/SmartClock/db/usage_data.db")
+        self.dashboard = ProductivityDashboard(self.root, self.app_monitor, self.rename_app, self.db_path)
+        self.calendar_view = CalendarView(self.root, self.show_dashboard)
 
         # Start monitoring
         self.app_monitor.start_monitoring()
         self._setup_database()
+
+        # Bind the close event to save focus times if autosave is enabled
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        # Bind the minimize event to activate focus mode
+        self.root.bind("<Unmap>", self.on_minimize)
 
         # Display initial dashboard
         self.show_dashboard()
@@ -102,6 +107,17 @@ class SmartClockApp:
         """)
         conn.commit()
         conn.close()
+
+    def on_close(self):
+        """Handle the close event to save focus times if autosave is enabled."""
+        if self.settings.get("autosave"):
+            self.app_monitor.save_focus_times(self.db_path)
+        self.root.destroy()
+
+    def on_minimize(self, event):
+        """Handle the minimize event to activate focus mode."""
+        if self.root.state() == "iconic":
+            self.focus_mode.activate()
 
     def run(self):
         """Start the customtkinter main loop."""
