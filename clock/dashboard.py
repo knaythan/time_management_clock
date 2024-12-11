@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from tkinter import ttk
+import sqlite3
 
 class ProductivityDashboard:
     def __init__(self, root, app_monitor, rename_callback, db_path):
@@ -40,6 +41,7 @@ class ProductivityDashboard:
         button_frame.pack(pady=10)
 
         ctk.CTkButton(button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="View Past Times", command=self.view_past_times).pack(side=ctk.LEFT, padx=5)
 
         self.update_dashboard()  # Start periodic updates
 
@@ -80,3 +82,24 @@ class ProductivityDashboard:
             new_name = new_name.strip()
             self.rename_callback(old_name, new_name)
             self.update_dashboard()
+
+    def view_past_times(self):
+        """Display past application times."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT date, app_name, focus_time FROM usage_data ORDER BY date DESC")
+        records = cursor.fetchall()
+        conn.close()
+
+        past_times_window = ctk.CTkToplevel(self.root)
+        past_times_window.title("Past Application Times")
+        past_times_window.geometry("600x400")
+
+        tree = ttk.Treeview(past_times_window, columns=('Date', 'App', 'Time (s)'), show='headings')
+        tree.heading('Date', text='Date')
+        tree.heading('App', text='Application')
+        tree.heading('Time (s)', text='Focus Time (s)')
+        tree.pack(fill=ctk.BOTH, expand=True)
+
+        for record in records:
+            tree.insert('', 'end', values=record)

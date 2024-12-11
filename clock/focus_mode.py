@@ -11,13 +11,14 @@ class FocusMode:
         self.is_active = False
         self.tray_icon = None
 
-    def activate(self):
-        """Minimize the app to the system tray."""
+    def activate(self, interval=25):
+        """Minimize the app to the system tray and set a timer to reopen."""
         if self.is_active:
             return
         self.is_active = True
         self.root.withdraw()  # Hide the main window
         self.create_tray_icon()
+        self.root.after(interval * 60 * 1000, self.deactivate)  # Reopen after interval minutes
 
     def deactivate(self):
         """Restore the app from the system tray."""

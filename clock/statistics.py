@@ -29,11 +29,27 @@ class Statistics:
     def show(self, label):
         conn = sqlite3.connect(self.db_path)
         period = self.period.get()
+        today = date.today()
         if period == "last day":
-            duration = timedelta(1)
+            start_date = today - timedelta(days=1)
+        elif period == "week":
+            start_date = today - timedelta(weeks=1)
+        elif period == "month":
+            start_date = today - timedelta(days=30)
+        elif period == "year":
+            start_date = today - timedelta(days=365)
         else:
-            duration = timedelta(7)
+            start_date = today - timedelta(days=7)  # Default to last week
 
-        data = conn.execute("SQL Query")  # Get custom data
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT app_name, SUM(focus_time) 
+            FROM usage_data 
+            WHERE date >= ? 
+            GROUP BY app_name
+        """, (start_date.isoformat(),))
+        data = cursor.fetchall()
         conn.close()
-        label.configure(text=str(data))
+
+        stats_text = "\n".join([f"{app}: {time} seconds" for app, time in data])
+        label.configure(text=stats_text)
