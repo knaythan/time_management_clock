@@ -10,5 +10,6 @@
     "mode": "Light",
     "dynamic_schedule": "pomodoro",
     "response_type": 1,
-    "reminder": "low"
+    "reminder": "low",
+    "afk_threshold": 5
 }
