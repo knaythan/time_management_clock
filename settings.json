@@ -5,8 +5,6 @@
     "short_break": 5,
     "long_break": 15,
     "long_break_interval": 4,
-    "inactivity_threshold": 5,
-    "color_theme": "light",
-    "font": "Lucida Console",
-    "zoom_scale": 1.0
+    "theme": "blue",
+    "mode": "Dark"
 }
