@@ -16,13 +16,13 @@ class SmartClockApp:
         self.root.geometry("800x600")
 
         # Initialize core components
-        self.settings = Settings()
-        self.app_monitor = AppMonitor(title)
-        self.focus_mode = FocusMode(self.root)
         if platform.system() == "Windows":
             self.db_path = os.path.join(os.path.dirname(__file__), '../db/usage_data.db')
         elif platform.system() == "Darwin":
             self.db_path = os.path.expanduser("~/Library/Application Support/SmartClock/db/usage_data.db")
+        self.settings = Settings()
+        self.app_monitor = AppMonitor(title, self.db_path)
+        self.focus_mode = FocusMode(self.root)
         self.dashboard = ProductivityDashboard(self.root, self.app_monitor, self.rename_app, self.db_path)
         self.calendar_view = CalendarView(self.root, self.show_dashboard)
 
@@ -30,13 +30,11 @@ class SmartClockApp:
         self.app_monitor.start_monitoring()
         if self.settings.get("afk_detection"):
             self.app_monitor.start_afk_detection()
+        # self.app_monitor.start_minimize()
         self._setup_database()
 
         # Bind the close event to save focus times if autosave is enabled
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
-
-        # Bind the minimize event to activate focus mode
-        self.root.bind("<Unmap>", self.on_minimize)
 
         # Display initial dashboard
         self.show_dashboard()
@@ -77,8 +75,9 @@ class SmartClockApp:
         ctk.CTkCheckBox(self.root, text="Enable Autosave", variable=autosave_var).pack(pady=5)
 
         # Theme and mode selection dropdowns
-        theme_var = ctk.StringVar(value="blue")  # Default theme
-        mode_var = ctk.StringVar(value="Light")  # Default mode
+        theme_var = ctk.StringVar(value=self.settings.get("theme"))  # Default theme
+        mode_var = ctk.StringVar(value=self.settings.get("mode"))  # Default mode
+        reminder_var = ctk.StringVar(value=self.settings.get("reminder"))  # Default reminder
 
         ctk.CTkLabel(self.root, text="Select Theme:").pack(pady=5)
         theme_dropdown = ctk.CTkOptionMenu(
@@ -95,6 +94,14 @@ class SmartClockApp:
             variable=mode_var
         )
         mode_dropdown.pack(pady=5)
+        
+        ctk.CTkLabel(self.root, text="Select Reminder Severity:").pack(pady=5)
+        reminder_dropdown = ctk.CTkOptionMenu(
+            self.root,
+            values=["low", "medium", "high"],
+            variable=reminder_var
+        )
+        reminder_dropdown.pack(pady=5)
 
         # AFK detection toggle
         afk_detection_var = ctk.BooleanVar(value=self.settings.get("afk_detection"))
@@ -107,7 +114,7 @@ class SmartClockApp:
         ctk.CTkButton(
             button_frame,
             text="Save",
-            command=lambda: self.save_settings_with_theme(autosave_var, theme_var, mode_var, afk_detection_var)
+            command=lambda: self.save_settings_with_theme(autosave_var, theme_var, mode_var, afk_detection_var, reminder_var)
         ).pack(side=ctk.LEFT, padx=5)
 
         ctk.CTkButton(
@@ -117,13 +124,11 @@ class SmartClockApp:
         ).pack(side=ctk.LEFT, padx=5)
 
 
-    def save_settings_with_theme(self, autosave_var, theme_var, mode_var, afk_detection_var):
+    def save_settings_with_theme(self, autosave_var, theme_var, mode_var, afk_detection_var, reminder_var):
         """Save settings, theme, and mode, and apply changes with a restart prompt."""
         self.settings.update("autosave", autosave_var.get())
         self.settings.update("afk_detection", afk_detection_var.get())
-        self.settings.update("theme", theme_var.get())
-        self.settings.update("mode", mode_var.get())
-        self.settings.save()
+        self.settings.update("reminder", reminder_var.get())
         
         # Apply AFK detection setting immediately
         if afk_detection_var.get():
@@ -132,13 +137,25 @@ class SmartClockApp:
             self.app_monitor.stop_afk_detection()
         
         if theme_var.get() != self.settings.get("theme") or mode_var.get() != self.settings.get("mode"):
+            self.settings.update("theme", theme_var.get())
+            self.settings.update("mode", mode_var.get())    
+            self.settings.save()
             self.show_restart_popup()
+        self.settings.save()
     
     def show_restart_popup(self):
         """Show a popup window indicating a restart is required."""
         popup = ctk.CTkToplevel(self.root)
         popup.title("Restart Required")
         popup.geometry("300x150")
+
+        # Center the popup window over the main application window
+        popup.transient(self.root)
+        popup.grab_set()
+        # Calculate position to center the popup
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (300 // 2)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (150 // 2)
+        popup.geometry(f"+{x}+{y}")
 
         ctk.CTkLabel(popup, text="A restart is required to apply the changes.", font=("Arial", 14)).pack(pady=20)
 
@@ -147,6 +164,8 @@ class SmartClockApp:
 
         ctk.CTkButton(button_frame, text="Restart", command=lambda: [popup.destroy(), self.restart_program()]).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(button_frame, text="Cancel", command=popup.destroy).pack(side=ctk.LEFT, padx=5)
+
+        self.root.wait_window(popup)
     
     
     def restart_program(self):
@@ -199,7 +218,18 @@ class SmartClockApp:
             )
             """
         )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS classify_app (
+                app_name TEXT PRIMARY KEY,
+                category TEXT
+            )
+            """
+        )
         conn.commit()
+        cursor.execute("SELECT * FROM classify_app;")
+        apps = cursor.fetchall()
+        print(apps)
         conn.close()
 
     def on_close(self):
@@ -208,7 +238,7 @@ class SmartClockApp:
         self.root.destroy()
 
     def on_minimize(self):
-        pass
+        self.root.withdraw()
 
     def run(self):
         self.root.mainloop()

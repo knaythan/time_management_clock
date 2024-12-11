@@ -15,12 +15,15 @@ elif platform.system() == "Darwin":
     import Quartz
 from threading import Thread
 import os
+from distraction import DetectDistraction
 
 class AppMonitor:
-    def __init__(self, title):
+    def __init__(self, title, db_path):
         self.app_times = {}  # {app_name: time_in_seconds}
         self.title = title
+        self.db_path = db_path
         self.current_app = None
+        self.category = None
         self.monitoring = False
         self.afk_detection = False
         self.last_activity_time = time.time()
@@ -44,6 +47,22 @@ class AppMonitor:
     def stop_afk_detection(self):
         """Stop AFK detection."""
         self.afk_detection = False
+        
+    def start_minimize(self):
+        """Start minimizing unproductive apps."""
+        self.minimize = True
+        Thread(target=self._minimize_loop, daemon=True).start()
+        
+    def stop_minimize(self):
+        """Stop minimizing unproductive apps."""
+        self.minimize = False
+        
+    def _minimize_loop(self):
+        """Minimize unproductive apps."""
+        while self.minimize:
+            focused_app = self._get_focused_app()
+            if focused_app:
+                self._minimize_distraction(focused_app)
 
     def _afk_monitor_loop(self):
         """Monitor for AFK status."""
@@ -145,11 +164,48 @@ class AppMonitor:
         except Exception as e:
             print(f"Error detecting focused app: {e}")
         return None
+    
+    def _minimize_distraction(self, app_name):
+        if platform.system() == "Windows":
+            hwnd = win32gui.GetForegroundWindow()
+            pid = win32process.GetWindowThreadProcessId(hwnd)
+            process = psutil.Process(pid[-1])
+            process_name = process.name()
+            if self.category == "NONPRODUCTIVE":
+                print("inside")
+                win32gui.ShowWindow(hwnd, 6)  # Minimize the window
+        elif platform.system() == "Darwin":
+            process_name = app_name
+            if self.category == "UNPRODUCTIVE":
+                os.system(f"osascript -e 'tell application \"{process_name}\" to set miniaturized of front window to true'")
 
     def _update_app_time(self, app_name):
         """Update the focus time for the given application."""
         if app_name != self.current_app:
             self.current_app = app_name
+            try:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT category FROM classify_app WHERE app_name = ?", (app_name,))
+                result = cursor.fetchone()
+                if not result:
+                    detector = DetectDistraction()
+                    category = detector.classify(app_name)
+                    cursor.execute(
+                        """
+                        INSERT INTO classify_app (app_name, category)
+                        VALUES (?, ?)
+                        ON CONFLICT(app_name) DO UPDATE SET category = excluded.category
+                        """, (app_name, category)
+                    )
+                    conn.commit()
+                    conn.close()
+                    self.category = category
+                    return
+                self.category = result[0]
+                return
+            except Exception as e:
+                print(f"Error detecting distraction: {e}")
         elif app_name == self.current_app:
             self.app_times[app_name] = self.app_times.get(app_name, 0) + 1
 

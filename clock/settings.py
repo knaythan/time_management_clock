@@ -8,6 +8,7 @@ class Settings:
         self.file_path = "settings.json"
         self.data = {}
         self.load()
+        self.data.setdefault("response_type", 1)  # Default to 1 if not set
 
     def load(self):
         """Load settings from a file if it exists."""
