@@ -13,6 +13,23 @@ class ProductivityDashboard:
 
     def display(self, parent_frame, update=True):
         """Display the dashboard with a tree view of focused app times."""
+        self.time_display(parent_frame)
+        
+        self.tree.bind("<Double-1>", self.edit_name)
+
+        button_frame = ctk.CTkFrame(parent_frame)
+        button_frame.pack(pady=10)
+
+        ctk.CTkButton(button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="View Past Times", command=self.view_past_times).pack(side=ctk.LEFT, padx=5)
+
+        self.display_times(update=update)  # Start periodic updates
+
+    def save_focus_times(self):
+        """Save the focus times to the database."""
+        self.app_monitor.save_focus_times(self.db_path)
+        
+    def time_display(self, parent_frame):
         style = ttk.Style()
         style.theme_use("clam")  # Use a theme that allows customization
         style.configure("Treeview", 
@@ -34,20 +51,6 @@ class ProductivityDashboard:
         self.tree.heading('App', text='Application')
         self.tree.heading('Time (s)', text='Focus Time (s)')
         self.tree.pack(fill=ctk.BOTH, expand=True, padx=10, pady=10)
-
-        self.tree.bind("<Double-1>", self.edit_name)
-
-        button_frame = ctk.CTkFrame(parent_frame)
-        button_frame.pack(pady=10)
-
-        ctk.CTkButton(button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(button_frame, text="View Past Times", command=self.view_past_times).pack(side=ctk.LEFT, padx=5)
-
-        self.display_times(update=update)  # Start periodic updates
-
-    def save_focus_times(self):
-        """Save the focus times to the database."""
-        self.app_monitor.save_focus_times(self.db_path)
 
     def display_times(self, update=True):
         """Update the dashboard tree view with current data."""
