@@ -74,37 +74,16 @@ class SmartClockApp:
         autosave_var = ctk.BooleanVar(value=self.settings.get("autosave"))
         ctk.CTkCheckBox(self.root, text="Enable Autosave", variable=autosave_var).pack(pady=5)
 
-        pomodoro_var = ctk.IntVar(value=self.settings.get("pomodoro_timer"))
-        short_break_var = ctk.IntVar(value=self.settings.get("short_break"))
-        long_break_var = ctk.IntVar(value=self.settings.get("long_break"))
-        long_break_interval_var = ctk.IntVar(value=self.settings.get("long_break_interval"))
-
-        ctk.CTkLabel(self.root, text="Pomodoro Timer (minutes)").pack(pady=5)
-        ctk.CTkEntry(self.root, textvariable=pomodoro_var).pack(pady=5)
-
-        ctk.CTkLabel(self.root, text="Short Break (minutes)").pack(pady=5)
-        ctk.CTkEntry(self.root, textvariable=short_break_var).pack(pady=5)
-
-        ctk.CTkLabel(self.root, text="Long Break (minutes)").pack(pady=5)
-        ctk.CTkEntry(self.root, textvariable=long_break_var).pack(pady=5)
-
-        ctk.CTkLabel(self.root, text="Long Break Interval (Pomodoros)").pack(pady=5)
-        ctk.CTkEntry(self.root, textvariable=long_break_interval_var).pack(pady=5)
-
         button_frame = ctk.CTkFrame(self.root)
         button_frame.pack(pady=10)
 
-        ctk.CTkButton(button_frame, text="Save", command=lambda: self.save_settings(autosave_var, pomodoro_var, short_break_var, long_break_var, long_break_interval_var, save_only=True)).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Save", command=lambda: self.save_settings(autosave_var, save_only=True)).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(button_frame, text="Exit", command=self.show_dashboard).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(button_frame, text="Save and Exit", command=lambda: self.save_settings(autosave_var, pomodoro_var, short_break_var, long_break_var, long_break_interval_var, save_only=False)).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Save and Exit", command=lambda: self.save_settings(autosave_var, save_only=False)).pack(side=ctk.LEFT, padx=5)
 
-    def save_settings(self, autosave_var, pomodoro_var, short_break_var, long_break_var, long_break_interval_var, save_only):
+    def save_settings(self, autosave_var, save_only):
         """Save settings and optionally return to dashboard."""
         self.settings.update("autosave", autosave_var.get())
-        self.settings.update("pomodoro_timer", pomodoro_var.get())
-        self.settings.update("short_break", short_break_var.get())
-        self.settings.update("long_break", long_break_var.get())
-        self.settings.update("long_break_interval", long_break_interval_var.get())
         if not save_only:
             self.show_dashboard()
 
@@ -155,10 +134,9 @@ class SmartClockApp:
             self.app_monitor.save_focus_times(self.db_path)
         self.root.destroy()
 
-    def on_minimize(self, event):
+    def on_minimize(self):
         """Handle the minimize event to activate focus mode."""
-        if self.root.state() == "iconic":
-            self.focus_mode.activate()
+        pass
 
     def run(self):
         """Start the customtkinter main loop."""
