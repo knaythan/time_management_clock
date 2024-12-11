@@ -203,18 +203,35 @@ class ProductivityDashboard:
         cursor.execute("SELECT name FROM schedule")
         schedules = [row[0] for row in cursor.fetchall()]
         conn.close()
-        
-        """Add a new task to the scheduler."""
-        # Create a new window for task input
+
+        if schedules:
+            self.schedule_name = schedules[0]  # Default to the first schedule
+            self.load_selected_schedule(self.schedule_name)
+
+        # Clear existing buttons
+        for widget in self.button_frame.winfo_children():
+            widget.destroy()
+
+        # Add buttons for managing tasks
+        ctk.CTkButton(self.button_frame, text="Add Task", command=self.add_task).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Edit Task", command=self.edit_task).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Remove Task", command=self.remove_task).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Exit", command=self.exit_task_view).pack(side=ctk.LEFT, padx=5)
+
+        # Create a new window for schedule selection
         input_window = ctk.CTkToplevel(self.root)
+        input_window.title("Select Schedule")
         input_window.geometry("300x200")
 
         # Center the window on the screen
         input_window.update_idletasks()
+        input_window.update_idletasks()
         width = input_window.winfo_width()
         height = input_window.winfo_height()
-        x = (input_window.winfo_screenwidth() // 2) - (width // 2)
-        y = (input_window.winfo_screenheight() // 2) - (height // 2)
+
+        x = (self.root.winfo_width() // 2) - (width // 2)
+        y = (self.root.winfo_height() // 2) - (height // 2)
+
         input_window.geometry(f'{width}x{height}+{x}+{y}')
 
         # Focus on the window
@@ -222,7 +239,7 @@ class ProductivityDashboard:
 
         # Schedule dropdown
         ctk.CTkLabel(input_window, text="Select Schedule:").pack(pady=5)
-        schedule_name = ctk.StringVar(value=schedules[0])  # Default to the first schedule
+        schedule_name = ctk.StringVar(value=schedules[0] if schedules else "")
         schedule_dropdown = ctk.CTkOptionMenu(
             input_window,
             values=schedules,
@@ -237,20 +254,6 @@ class ProductivityDashboard:
 
         # Submit button
         ctk.CTkButton(input_window, text="Submit", command=submit_schedule).pack(pady=10)
-
-        if schedules:
-            for schedule in schedules:
-                self.tree.insert('', 'end', values=(schedule,))
-        ctk.CTkButton(self.button_frame, text="Add Task", command=self.add_task).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Edit Task", command=self.edit_task).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Remove Task", command=self.remove_task).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Exit", command=self.exit_task_view).pack(side=ctk.LEFT, padx=5)
-        # Create a dropdown menu to select schedules
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT name FROM schedule")
-        schedules = [row[0] for row in cursor.fetchall()]
-        conn.close()
 
         
         
@@ -375,7 +378,7 @@ class ProductivityDashboard:
             expected_duration = duration_entry.get().strip()
 
             if task_name and expected_duration.isdigit():
-                expected_duration = int(expected_duration)
+                expected_duration = int(expected_duration) * 60
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
                 cursor.execute("SELECT id FROM schedule WHERE name = ?", (self.schedule_name,))
@@ -468,16 +471,22 @@ class ProductivityDashboard:
 
 
 def format_time(seconds):
-    """Convert time in seconds to a human-readable format."""
+    """Convert time in seconds to a human-readable format with fixed units."""
     sec = int(seconds)
     if sec < 60:
         return f"{sec} s"
     elif sec < 3600:
         minutes = sec // 60
-        return f"{minutes} min"
+        sec = sec % 60
+        return f"{minutes} min{'s' if minutes != 1 else ''} {sec} s"
     elif sec < 86400:
         hours = sec // 3600
-        return f"{hours} hrs"
+        minutes = (sec % 3600) // 60
+        sec = sec % 60
+        return f"{hours} hr{'s' if hours != 1 else ''} {minutes} min{'s' if minutes != 1 else ''} {sec} s"
     else:
         days = sec // 86400
-        return f"{days} days"
+        hours = (sec % 86400) // 3600
+        minutes = (sec % 3600) // 60
+        sec = sec % 60
+        return f"{days} day{'s' if days != 1 else ''} {hours} hr{'s' if hours != 1 else ''} {minutes} min{'s' if minutes != 1 else ''} {sec} s"
