@@ -11,7 +11,7 @@ class ProductivityDashboard:
         self.update_job = None  # To track scheduled updates
         self.db_path = db_path  # Add db_path attribute
 
-    def display(self, parent_frame):
+    def display(self, parent_frame, update=True):
         """Display the dashboard with a tree view of focused app times."""
         style = ttk.Style()
         style.theme_use("clam")  # Use a theme that allows customization
@@ -43,26 +43,38 @@ class ProductivityDashboard:
         ctk.CTkButton(button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(button_frame, text="View Past Times", command=self.view_past_times).pack(side=ctk.LEFT, padx=5)
 
-        self.update_dashboard()  # Start periodic updates
+        self.display_times(update=update)  # Start periodic updates
 
     def save_focus_times(self):
         """Save the focus times to the database."""
         self.app_monitor.save_focus_times(self.db_path)
 
-    def update_dashboard(self):
+    def display_times(self, update=True):
         """Update the dashboard tree view with current data."""
-        if self.tree is None:
-            return  # Prevent errors if tree is destroyed
+        if self.tree is None or not self.tree.winfo_exists():
+            return  # Prevent errors if tree is destroyed or doesn't exist
 
         app_times = self.app_monitor.get_app_times()
+        custom_names = self._get_custom_names()
         self.tree.delete(*self.tree.get_children())  # Clear existing data
 
         for app, time in app_times.items():
+            display_name = custom_names.get(app, app)
             human_readable_time = self._format_time(time)
-            self.tree.insert('', 'end', values=(app, human_readable_time))
+            self.tree.insert('', 'end', values=(display_name, human_readable_time))
 
         # Schedule the next update
-        self.update_job = self.root.after(1000, self.update_dashboard)
+        if update:
+            self.update_job = self.root.after(1000, self.display_times)
+
+    def _get_custom_names(self):
+        """Retrieve custom app names from the database."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT original_name, custom_name FROM app_names")
+        custom_names = {row[0]: row[1] for row in cursor.fetchall()}
+        conn.close()
+        return custom_names
 
     def _format_time(self, seconds):
         """Convert time in seconds to a human-readable format."""
@@ -95,8 +107,25 @@ class ProductivityDashboard:
         
         if new_name and new_name.strip():
             new_name = new_name.strip()
-            self.rename_callback(old_name, new_name)
-            self.update_dashboard()
+            try:
+                self.rename_callback(old_name, new_name)
+            except sqlite3.IntegrityError:
+                self.merge_focus_times(old_name, new_name)
+            self.display_times()
+
+    def merge_focus_times(self, old_name, new_name):
+        """Merge focus times for the old and new app names."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE usage_data
+            SET focus_time = focus_time + (SELECT focus_time FROM usage_data WHERE app_name = ?)
+            WHERE app_name = ? AND date IN (SELECT date FROM usage_data WHERE app_name = ?)
+        """, (old_name, new_name, old_name))
+        cursor.execute("DELETE FROM usage_data WHERE app_name = ?", (old_name,))
+        cursor.execute("INSERT OR REPLACE INTO app_names (original_name, custom_name) VALUES (?, ?)", (old_name, new_name))
+        conn.commit()
+        conn.close()
 
     def view_past_times(self):
         """Display past application times."""

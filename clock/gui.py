@@ -112,10 +112,19 @@ class SmartClockApp:
         """Rename application in the database and merge data."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("UPDATE usage_data SET app_name = ? WHERE app_name = ?", (new_name, old_name))
+        try:
+            cursor.execute("UPDATE usage_data SET app_name = ? WHERE app_name = ?", (new_name, old_name))
+        except sqlite3.IntegrityError:
+            cursor.execute("""
+                UPDATE usage_data
+                SET focus_time = focus_time + (SELECT focus_time FROM usage_data WHERE app_name = ?)
+                WHERE app_name = ? AND date IN (SELECT date FROM usage_data WHERE app_name = ?)
+            """, (old_name, new_name, old_name))
+            cursor.execute("DELETE FROM usage_data WHERE app_name = ?", (old_name,))
+        cursor.execute("INSERT OR REPLACE INTO app_names (original_name, custom_name) VALUES (?, ?)", (old_name, new_name))
         conn.commit()
         conn.close()
-        self.dashboard.update_dashboard()
+        self.dashboard.display_times()
 
     def _setup_database(self):
         """Set up SQLite database for saving focus times."""
@@ -129,6 +138,12 @@ class SmartClockApp:
                 app_name TEXT NOT NULL,
                 focus_time REAL NOT NULL,
                 UNIQUE(date, app_name)
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS app_names (
+                original_name TEXT PRIMARY KEY,
+                custom_name TEXT
             )
         """)
         conn.commit()

@@ -64,13 +64,23 @@ class AppMonitor:
 
     def save_focus_times(self, db_path):
         """Save the accumulated focus times to the database."""
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        for app_name, focus_time in self.app_times.items():
-            cursor.execute("""
-                INSERT INTO usage_data (date, app_name, focus_time)
-                VALUES (?, ?, ?)
-                ON CONFLICT(date, app_name) DO UPDATE SET focus_time = focus_time + excluded.focus_time
-            """, (date.today().isoformat(), app_name, focus_time))
-        conn.commit()
-        conn.close()
+        retries = 5
+        while retries > 0:
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                for app_name, focus_time in self.app_times.items():
+                    cursor.execute("""
+                        INSERT INTO usage_data (date, app_name, focus_time)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(date, app_name) DO UPDATE SET focus_time = focus_time + excluded.focus_time
+                    """, (date.today().isoformat(), app_name, focus_time))
+                conn.commit()
+                conn.close()
+                break
+            except sqlite3.OperationalError as e:
+                if 'database is locked' in str(e):
+                    retries -= 1
+                    time.sleep(1)
+                else:
+                    raise
