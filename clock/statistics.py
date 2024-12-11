@@ -51,5 +51,19 @@ class Statistics:
         data = cursor.fetchall()
         conn.close()
 
-        stats_text = "\n".join([f"{app}: {time} seconds" for app, time in data])
+        stats_text = "\n".join([f"{app}: {self._format_time(time)}" for app, time in data])
         label.configure(text=stats_text)
+
+    def _format_time(self, seconds):
+        """Convert time in seconds to a human-readable format."""
+        if seconds < 60:
+            return f"{seconds} s"
+        elif seconds < 3600:
+            minutes = seconds // 60
+            return f"{minutes} min"
+        elif seconds < 86400:
+            hours = seconds // 3600
+            return f"{hours} hr"
+        else:
+            days = seconds // 86400
+            return f"{days} days"
