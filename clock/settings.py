@@ -8,7 +8,11 @@ class Settings:
         self.db_path = os.path.join(os.path.dirname(__file__), '../db/usage_data.db')
         self.data = {
             "custom_app_names": {},
-            "autosave": True  # Default to autosave enabled
+            "autosave": True,  # Default to autosave enabled
+            "pomodoro_timer": 25,  # Default Pomodoro timer in minutes
+            "short_break": 5,  # Default short break in minutes
+            "long_break": 15,  # Default long break in minutes
+            "long_break_interval": 4  # Number of Pomodoros before a long break
         }
         self.load()
         self._setup_database()
