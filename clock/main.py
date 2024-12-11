@@ -5,6 +5,7 @@ import os
 import platform
 from settings import Settings  # Import the Settings class
 from app_monitor import AppMonitor  # Import the AppMonitor class
+from dynamic_schedule import DynamicSchedule  # Import DynamicSchedule
 
 def main():
     # Load stored theme and mode
@@ -38,6 +39,7 @@ def main():
 
         # Set the custom icon
         root.iconbitmap(icon_path)  # Set the custom icon
+
 
     app = SmartClockApp(root)
     app.run()

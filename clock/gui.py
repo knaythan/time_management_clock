@@ -24,6 +24,7 @@ class SmartClockApp:
         self.app_monitor = AppMonitor(title, self.db_path)
         self.focus_mode = FocusMode(self.root)
         self.dashboard = ProductivityDashboard(self.root, self.app_monitor, self.rename_app, self.db_path)
+        self.dashboard.settings = self.settings  # Pass settings to the dashboard
         self.calendar_view = CalendarView(self.root, self.show_dashboard)
 
         # Start monitoring
@@ -107,6 +108,15 @@ class SmartClockApp:
         afk_detection_var = ctk.BooleanVar(value=self.settings.get("afk_detection"))
         ctk.CTkCheckBox(self.root, text="Enable AFK Detection", variable=afk_detection_var).pack(pady=5)
 
+        # Dynamic scheduling options
+        ctk.CTkLabel(self.root, text="Dynamic Scheduling:").pack(pady=5)
+        dynamic_schedule_var = ctk.StringVar(value="pomodoro")  # Default technique
+        ctk.CTkOptionMenu(
+            self.root,
+            values=["pomodoro", "custom"],
+            variable=dynamic_schedule_var
+        ).pack(pady=5)
+
         # Save and exit buttons
         button_frame = ctk.CTkFrame(self.root)
         button_frame.pack(pady=10)
@@ -114,7 +124,7 @@ class SmartClockApp:
         ctk.CTkButton(
             button_frame,
             text="Save",
-            command=lambda: self.save_settings_with_theme(autosave_var, theme_var, mode_var, afk_detection_var, reminder_var)
+            command=lambda: self.save_settings_with_theme_and_schedule(autosave_var, theme_var, mode_var, afk_detection_var, reminder_var, dynamic_schedule_var)
         ).pack(side=ctk.LEFT, padx=5)
 
         ctk.CTkButton(
@@ -124,12 +134,12 @@ class SmartClockApp:
         ).pack(side=ctk.LEFT, padx=5)
 
 
-    def save_settings_with_theme(self, autosave_var, theme_var, mode_var, afk_detection_var, reminder_var):
+    def save_settings_with_theme_and_schedule(self, autosave_var, theme_var, mode_var, afk_detection_var, reminder_var, dynamic_schedule_var):
         """Save settings, theme, and mode, and apply changes with a restart prompt."""
         self.settings.update("autosave", autosave_var.get())
         self.settings.update("afk_detection", afk_detection_var.get())
         self.settings.update("reminder", reminder_var.get())
-        
+        self.settings.update("dynamic_schedule", dynamic_schedule_var.get())
         # Apply AFK detection setting immediately
         if afk_detection_var.get():
             self.app_monitor.start_afk_detection()
