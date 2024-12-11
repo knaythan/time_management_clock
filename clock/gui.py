@@ -94,6 +94,10 @@ class SmartClockApp:
         )
         mode_dropdown.pack(pady=5)
 
+        # AFK detection toggle
+        afk_detection_var = ctk.BooleanVar(value=self.settings.get("afk_detection"))
+        ctk.CTkCheckBox(self.root, text="Enable AFK Detection", variable=afk_detection_var).pack(pady=5)
+
         # Save and exit buttons
         button_frame = ctk.CTkFrame(self.root)
         button_frame.pack(pady=10)
@@ -101,7 +105,7 @@ class SmartClockApp:
         ctk.CTkButton(
             button_frame,
             text="Save",
-            command=lambda: self.save_settings_with_theme(autosave_var, theme_var, mode_var)
+            command=lambda: self.save_settings_with_theme(autosave_var, theme_var, mode_var, afk_detection_var)
         ).pack(side=ctk.LEFT, padx=5)
 
         ctk.CTkButton(
@@ -110,13 +114,26 @@ class SmartClockApp:
             command=self.show_dashboard
         ).pack(side=ctk.LEFT, padx=5)
 
-    def save_settings_with_theme(self, autosave_var, theme_var, mode_var):
-        """Save settings, theme, and mode, and handle restart based on user choice."""
+    def save_settings(self, autosave_var, theme_var, mode_var, afk_detection_var):
+        """Save settings without applying theme and mode changes."""
         self.settings.update("autosave", autosave_var.get())
+        self.settings.update("afk_detection", afk_detection_var.get())
+
+        # Apply AFK detection setting immediately
+        if afk_detection_var.get():
+            self.app_monitor.start_afk_detection()
+        else:
+            self.app_monitor.stop_afk_detection()
+
+        self.settings.save()
+        self.show_restart_popup()
+
+
+    def save_settings_with_theme(self, autosave_var, theme_var, mode_var, afk_detection_var):
+        """Save settings, theme, and mode, and apply changes with a restart prompt."""
+        self.save_settings(autosave_var, theme_var, mode_var, afk_detection_var)
         self.settings.update("theme", theme_var.get())
         self.settings.update("mode", mode_var.get())
-
-        
         self.settings.save()
         self.show_restart_popup()
     

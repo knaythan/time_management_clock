@@ -4,6 +4,7 @@ import psutil
 import platform
 import sqlite3
 from datetime import date
+from pynput import keyboard, mouse
 
 if platform.system() == "Windows":
     import win32gui
@@ -21,6 +22,10 @@ class AppMonitor:
         self.title = title
         self.current_app = None
         self.monitoring = False
+        self.afk_detection = False
+        self.last_activity_time = time.time()
+        self.afk_threshold = 10  # 10 seconds of inactivity
+        self.afk_app_name = "afk_time"
 
     def start_monitoring(self):
         """Start monitoring the focused application."""
@@ -30,6 +35,27 @@ class AppMonitor:
     def stop_monitoring(self):
         """Stop monitoring the focused application."""
         self.monitoring = False
+
+    def start_afk_detection(self):
+        """Start AFK detection by monitoring keyboard and mouse activity."""
+        self.afk_detection = True
+        Thread(target=self._afk_monitor_loop, daemon=True).start()
+
+    def stop_afk_detection(self):
+        """Stop AFK detection."""
+        self.afk_detection = False
+
+    def _afk_monitor_loop(self):
+        """Monitor for AFK status."""
+        def on_activity(*args):
+            self.last_activity_time = time.time()
+
+        with keyboard.Listener(on_press=on_activity), mouse.Listener(on_click=on_activity, on_move=on_activity):
+            while self.afk_detection:
+                if time.time() - self.last_activity_time > self.afk_threshold:
+                    self._update_app_time(self.afk_app_name)  # Start counting AFK time
+                    self.current_app = self.afk_app_name  # Set current app to AFK
+                time.sleep(1)
 
     def _monitor_loop(self):
         """Continuously monitor the focused application."""
@@ -124,10 +150,7 @@ class AppMonitor:
         """Update the focus time for the given application."""
         if app_name != self.current_app:
             self.current_app = app_name
-        elif app_name == self.current_app:
-            self.app_times[app_name] = self.app_times.get(app_name, 0) + 1
-        
-            
+        self.app_times[app_name] = self.app_times.get(app_name, 0) + 1
 
     def get_app_times(self):
         """Return the accumulated focus times for each application."""
