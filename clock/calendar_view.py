@@ -113,7 +113,7 @@ class CalendarView:
                 has_data = self.check_day_has_data(day_date)
 
                 # Color-code days based on whether they have data
-                bg_color = "#A9A9A9" if has_data else "#FFFFFF"
+                bg_color = "#FFFFFF" if has_data else "#A9A9A9"
                 text_color = "#000000"  # Set text color to black
 
                 day_button = ctk.CTkButton(
@@ -121,6 +121,7 @@ class CalendarView:
                     text=str(day),
                     fg_color=bg_color,
                     text_color=text_color,  # Set text color
+                    state="normal" if has_data else "disabled",
                     command=lambda d=day: self.select_date(d)
                 )
                 day_button.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
@@ -135,6 +136,9 @@ class CalendarView:
         """Handle date selection in monthly view."""
         self.current_date = date(self.current_date.year, self.current_date.month, day)
         self.show_calendar()
+        # Update button states
+        self.previous_button.configure(state="normal" if self.current_date > self.min_date else "disabled")
+        self.next_button.configure(state="normal" if self.current_date < date.today() else "disabled")
 
     def update_data(self):
         """Fetch and display daily data."""
