@@ -77,14 +77,14 @@ class AppMonitor:
             script = f"""
             tell application "{browser_name}"
                 if (count of windows) > 0 then
-                    return URL of active tab of front window
+                    return URL of {"current tab of front window" if browser_name in ["Safari", "Firefox"] else "active tab of front window"}
                 else
-                    return "No {browser_name} window open"
+                    return ""
                 end if
             end tell
             """
             url = os.popen(f"osascript -e '{script}'").read().strip()
-            return url if url else f"No active URL found in {browser_name}."
+            return url if url else None  # Return None if no URL is found
         except Exception as e:
             return f"Error fetching URL from {browser_name}: {str(e)}"
 
@@ -92,10 +92,11 @@ class AppMonitor:
     def _get_focused_app(self):
         """Get the name of the currently focused application."""
         try:
+            win_browswers = ["Chrome", "Edge"]
+            mac_browsers = ["Google Chrome", "Safari"]
+
             if platform.system() == "Windows":
                 hwnd = win32gui.GetForegroundWindow()
-                win_browswers = ["Chrome", "Edge"]
-                mac_browsers = ["Google Chrome", "Safari", "Firefox", "Opera", "Brave Browser", "Microsoft Edge", "Vivaldi"]
                 if any(browser in win32gui.GetWindowText(hwnd) for browser in win_browswers):
                     url = self._get_browser_url()
                     if url:
@@ -107,9 +108,9 @@ class AppMonitor:
                         return proc.info['name']
             elif platform.system() == "Darwin":
                 active_app = NSWorkspace.sharedWorkspace().frontmostApplication()
-                browser_name = [browser for browser in mac_browsers if browser in active_app.localizedName()][0]
+                browser_name = [browser for browser in mac_browsers if browser in active_app.localizedName()]
                 if browser_name:
-                    url = self._get_browser_url_mac(browser_name)
+                    url = self._get_browser_url_mac(browser_name[0])
                     if url:
                         url = url.split('/')[2] if '//' in url else url.split('/')[0]
                         return url
@@ -122,7 +123,10 @@ class AppMonitor:
         """Update the focus time for the given application."""
         if app_name != self.current_app:
             self.current_app = app_name
-        self.app_times[app_name] = self.app_times.get(app_name, 0) + 1
+        elif app_name == self.current_app:
+            self.app_times[app_name] = self.app_times.get(app_name, 0) + 1
+        
+            
 
     def get_app_times(self):
         """Return the accumulated focus times for each application."""
