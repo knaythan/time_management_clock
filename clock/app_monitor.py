@@ -8,11 +8,11 @@ from datetime import date
 if platform.system() == "Windows":
     import win32gui
     import win32process
+    import uiautomation as auto
 elif platform.system() == "Darwin":
     from AppKit import NSWorkspace
     import Quartz
 from threading import Thread
-import uiautomation as auto
 import os
 
 class AppMonitor:
@@ -38,7 +38,7 @@ class AppMonitor:
                 self._update_app_time(focused_app)
             time.sleep(1)
             
-    def find_address_bar(self, window):
+    def _find_address_bar(self, window):
         """Find the address bar control by traversing the window's UI hierarchy."""
         try:
             # Traverse through child elements
@@ -53,7 +53,7 @@ class AppMonitor:
             return None  # Suppress errors and return None
         return None
 
-    def get_browser_url(self):
+    def _get_browser_url(self):
         """Fetch the URL from the browser's address bar."""
         try:
             # Get the foreground window control
@@ -64,37 +64,40 @@ class AppMonitor:
 
             # Check if the window is a browser
             if "chrome" in window.Name.lower() or "edge" in window.Name.lower():
-                url = self.find_address_bar(window)
+                url = self._find_address_bar(window)
                 return url if url else None
 
             return None
         except Exception:
             return "Error fetching browser URL."
     
-    def get_safari_url():
+    def _get_browser_url_mac(self, browser_name="Google Chrome"):
+        """Fetch the URL from the specified browser on macOS."""
         try:
-            script = """
-            tell application "Safari"
+            script = f"""
+            tell application "{browser_name}"
                 if (count of windows) > 0 then
-                    return URL of current tab of front window
+                    return URL of active tab of front window
                 else
-                    return "No Safari window open"
+                    return "No {browser_name} window open"
                 end if
             end tell
             """
             url = os.popen(f"osascript -e '{script}'").read().strip()
-            return url
+            return url if url else f"No active URL found in {browser_name}."
         except Exception as e:
-            return "Error fetching URL from Safari."
+            return f"Error fetching URL from {browser_name}: {str(e)}"
+
 
     def _get_focused_app(self):
         """Get the name of the currently focused application."""
         try:
             if platform.system() == "Windows":
                 hwnd = win32gui.GetForegroundWindow()
-                browers = ["Chrome", "Edge"]
-                if any(browser in win32gui.GetWindowText(hwnd) for browser in browers):
-                    url = self.get_browser_url()
+                win_browswers = ["Chrome", "Edge"]
+                mac_browsers = ["Google Chrome", "Safari", "Firefox", "Opera", "Brave Browser", "Microsoft Edge", "Vivaldi"]
+                if any(browser in win32gui.GetWindowText(hwnd) for browser in win_browswers):
+                    url = self._get_browser_url()
                     if url:
                         url = url.split('/')[2] if '//' in url else url.split('/')[0]
                         return url
@@ -104,8 +107,9 @@ class AppMonitor:
                         return proc.info['name']
             elif platform.system() == "Darwin":
                 active_app = NSWorkspace.sharedWorkspace().frontmostApplication()
-                if active_app.bundleIdentifier() == "com.apple.Safari":
-                    url = self.get_safari_url()
+                browser_name = [browser for browser in mac_browsers if browser in active_app.localizedName()][0]
+                if browser_name:
+                    url = self._get_browser_url_mac(browser_name)
                     if url:
                         url = url.split('/')[2] if '//' in url else url.split('/')[0]
                         return url
