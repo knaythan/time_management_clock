@@ -28,4 +28,3 @@ class Settings:
     def get(self, key):
         """Retrieve a setting value."""
         return self.data.get(key, None)
-    

@@ -1,4 +1,5 @@
 {
+    "afk_detection": true,
     "custom_app_names": {},
     "autosave": true,
     "pomodoro_timer": 25,
@@ -6,5 +7,5 @@
     "long_break": 15,
     "long_break_interval": 4,
     "theme": "blue",
-    "mode": "Dark"
+    "mode": "Light"
 }
