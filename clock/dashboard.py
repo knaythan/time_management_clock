@@ -11,7 +11,7 @@ class ProductivityDashboard:
         self.update_job = None  # To track scheduled updates
         self.db_path = db_path  # Add db_path attribute
 
-    def display(self, parent_frame, update=True):
+    def display(self, parent_frame):
         """Display the dashboard with a tree view of focused app times."""
         self.time_display(parent_frame)
         
@@ -23,7 +23,7 @@ class ProductivityDashboard:
         ctk.CTkButton(button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(button_frame, text="View Past Times", command=self.view_past_times).pack(side=ctk.LEFT, padx=5)
 
-        self.display_times(update=update)  # Start periodic updates
+        self.display_times()  # Start periodic updates
 
     def save_focus_times(self):
         """Save the focus times to the database."""
@@ -52,7 +52,7 @@ class ProductivityDashboard:
         self.tree.heading('Time (s)', text='Focus Time (s)')
         self.tree.pack(fill=ctk.BOTH, expand=True, padx=10, pady=10)
 
-    def display_times(self, update=True):
+    def display_times(self):
         """Update the dashboard tree view with current data."""
         if self.tree is None or not self.tree.winfo_exists():
             return  # Prevent errors if tree is destroyed or doesn't exist
@@ -67,8 +67,7 @@ class ProductivityDashboard:
             self.tree.insert('', 'end', values=(display_name, human_readable_time))
 
         # Schedule the next update
-        if update:
-            self.update_job = self.root.after(1000, self.display_times)
+        self.update_job = self.root.after(1000, self.display_times)
 
     def _get_custom_names(self):
         """Retrieve custom app names from the database."""
