@@ -4,6 +4,7 @@ import sqlite3
 from datetime import date, timedelta
 import os
 import calendar  # Import calendar module
+from dashboard import format_time
 
 class CalendarView:
     def __init__(self, root, back_callback):
@@ -39,7 +40,7 @@ class CalendarView:
         if self.current_date == date.today():
             self.next_button.configure(state="disabled")
 
-        # TreeView for daily data
+        # Display Treeview
         style = ttk.Style()
         style.theme_use("clam")  # Use a theme that allows customization
         style.configure("Treeview", 
@@ -53,12 +54,14 @@ class CalendarView:
                         background="#444444", 
                         foreground="white", 
                         font=("Arial", 12, "bold"))
-        style.map('Treeview', background=[('selected', '#555555')], foreground=[('selected', 'white')])
+        style.map('Treeview', background=[('selected', '#555555')], foreground=[('selected', 'grey')])
 
-        self.tree = ttk.Treeview(self.root, columns=('App', 'Time (s)'), show='headings', style="Treeview")
+        self.root.configure(bg="#222222")  # Set background color of parent frame
+
+        self.tree = ttk.Treeview(self.root, columns=('App', 'Time (s)'), show='headings', selectmode="browse", style="Treeview")
         self.tree.heading('App', text='Application')
         self.tree.heading('Time (s)', text='Focus Time (s)')
-        self.tree.pack(fill=ctk.BOTH, expand=True, pady=10)
+        self.tree.pack(fill=ctk.BOTH, expand=True, padx=10, pady=10)
 
         button_frame = ctk.CTkFrame(self.root)
         button_frame.pack(pady=10)
@@ -150,6 +153,7 @@ class CalendarView:
 
         self.tree.delete(*self.tree.get_children())
         for app, time in records:
+            time = format_time(time)
             self.tree.insert('', 'end', values=(app, time))
 
     def previous_day(self):

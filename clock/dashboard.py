@@ -10,18 +10,19 @@ class ProductivityDashboard:
         self.rename_callback = rename_callback
         self.update_job = None  # To track scheduled updates
         self.db_path = db_path  # Add db_path attribute
+        self.viewing_total_times = False  # Track if viewing total times
 
     def display(self, parent_frame):
         """Display the dashboard with a tree view of focused app times."""
-        self.time_display(parent_frame)
+        self._time_display(parent_frame)
         
         self.tree.bind("<Double-1>", self.edit_name)
 
-        button_frame = ctk.CTkFrame(parent_frame)
-        button_frame.pack(pady=10)
+        self.button_frame = ctk.CTkFrame(parent_frame)
+        self.button_frame.pack(pady=10)
 
-        ctk.CTkButton(button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(button_frame, text="View Past Times", command=self.view_past_times).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="View Total Times", command=self.view_total_times).pack(side=ctk.LEFT, padx=5)
 
         self.display_times()  # Start periodic updates
 
@@ -29,7 +30,7 @@ class ProductivityDashboard:
         """Save the focus times to the database."""
         self.app_monitor.save_focus_times(self.db_path)
         
-    def time_display(self, parent_frame):
+    def _time_display(self, parent_frame):
         style = ttk.Style()
         style.theme_use("clam")  # Use a theme that allows customization
         style.configure("Treeview", 
@@ -63,7 +64,7 @@ class ProductivityDashboard:
 
         for app, time in app_times.items():
             display_name = custom_names.get(app, app)
-            human_readable_time = self._format_time(time)
+            human_readable_time = format_time(time)
             self.tree.insert('', 'end', values=(display_name, human_readable_time))
 
         # Schedule the next update
@@ -78,27 +79,13 @@ class ProductivityDashboard:
         conn.close()
         return custom_names
 
-    def _format_time(self, seconds):
-        """Convert time in seconds to a human-readable format."""
-        if seconds < 60:
-            return f"{seconds} seconds"
-        elif seconds < 3600:
-            minutes = seconds // 60
-            return f"{minutes} minutes"
-        elif seconds < 86400:
-            hours = seconds // 3600
-            return f"{hours} hours"
-        else:
-            days = seconds // 86400
-            return f"{days} days"
-
     def stop_updates(self):
         """Stop periodic updates when leaving the dashboard."""
         if self.update_job:
             self.root.after_cancel(self.update_job)
             self.update_job = None
 
-    def edit_name(self, event):
+    def edit_name(self, event=None):
         """Allow users to rename app names inline."""
         selected_item = self.tree.focus()
         if not selected_item:
@@ -129,23 +116,68 @@ class ProductivityDashboard:
         conn.commit()
         conn.close()
 
-    def view_past_times(self):
-        """Display past application times."""
+    def view_total_times(self):
+        """Display total time spent on each application in the same tree view."""
+        self.stop_updates()  # Stop periodic updates
+        self.viewing_total_times = True
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT date, app_name, focus_time FROM usage_data ORDER BY date DESC")
+        cursor.execute("SELECT app_name, SUM(focus_time) FROM usage_data GROUP BY app_name ORDER BY SUM(focus_time) DESC")
         records = cursor.fetchall()
         conn.close()
 
-        past_times_window = ctk.CTkToplevel(self.root)
-        past_times_window.title("Past Application Times")
-        past_times_window.geometry("600x400")
-
-        tree = ttk.Treeview(past_times_window, columns=('Date', 'App', 'Time (s)'), show='headings')
-        tree.heading('Date', text='Date')
-        tree.heading('App', text='Application')
-        tree.heading('Time (s)', text='Focus Time (s)')
-        tree.pack(fill=ctk.BOTH, expand=True)
-
+        self.tree.delete(*self.tree.get_children())  # Clear existing data
+        
         for record in records:
-            tree.insert('', 'end', values=record)
+            app = record[0]
+            time = format_time(record[1])
+            self.tree.insert('', 'end', values=(app, time))
+
+        # Clear existing buttons
+        for widget in self.button_frame.winfo_children():
+            widget.destroy()
+
+        # Add new buttons for sorting and exiting
+        ctk.CTkButton(self.button_frame, text="Sort Ascending", command=lambda: self.sort_treeview("asc", records)).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Sort Descending", command=lambda: self.sort_treeview("desc", records)).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Exit", command=self.exit_total_times_view).pack(side=ctk.LEFT, padx=5)
+
+    def sort_treeview(self, order, records):
+        """Sort the tree view based on the total focus time."""
+        sorted_records = sorted(records, key=lambda x: x[1], reverse=(order == "desc"))
+
+        self.tree.delete(*self.tree.get_children())  # Clear existing data
+
+        for record in sorted_records:
+            app = record[0]
+            time = format_time(record[1])
+            self.tree.insert('', 'end', values=(app, time))
+
+    def exit_total_times_view(self):
+        """Exit the total times view and return to the normal view."""
+        self.viewing_total_times = False
+        self.display_times()  # Resume periodic updates
+
+        # Clear existing buttons
+        for widget in self.button_frame.winfo_children():
+            widget.destroy()
+
+        # Add original buttons
+        ctk.CTkButton(self.button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="View Total Times", command=self.view_total_times).pack(side=ctk.LEFT, padx=5)
+
+def format_time(seconds):
+    """Convert time in seconds to a human-readable format."""
+    sec = int(seconds)
+    if sec < 60:
+        return f"{sec} s"
+    elif sec < 3600:
+        minutes = sec // 60
+        return f"{minutes} min"
+    elif sec < 86400:
+        hours = sec // 3600
+        return f"{hours} hrs"
+    else:
+        days = sec // 86400
+        return f"{days} days"
