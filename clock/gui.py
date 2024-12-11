@@ -11,12 +11,13 @@ import platform
 class SmartClockApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Smart Time-Management Clock")
+        title = "Smart Time-Management Clock"
+        self.root.title(title)
         self.root.geometry("800x600")
 
         # Initialize core components
         self.settings = Settings()
-        self.app_monitor = AppMonitor()
+        self.app_monitor = AppMonitor(title)
         self.focus_mode = FocusMode(self.root)
         if platform.system() == "Windows":
             self.db_path = os.path.join(os.path.dirname(__file__), '../db/usage_data.db')
@@ -31,9 +32,6 @@ class SmartClockApp:
 
         # Bind the close event to save focus times if autosave is enabled
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
-
-        # Bind the minimize event to activate focus mode
-        self.root.bind("<Unmap>", self.on_minimize)
 
         # Display initial dashboard
         self.show_dashboard()
@@ -136,7 +134,7 @@ class SmartClockApp:
 
     def on_minimize(self):
         """Handle the minimize event to activate focus mode."""
-        pass
+        self.root.withdraw()
 
     def run(self):
         """Start the customtkinter main loop."""

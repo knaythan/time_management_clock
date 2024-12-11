@@ -16,8 +16,9 @@ from threading import Thread
 import os
 
 class AppMonitor:
-    def __init__(self):
+    def __init__(self, title):
         self.app_times = {}  # {app_name: time_in_seconds}
+        self.title = title
         self.current_app = None
         self.monitoring = False
 
@@ -97,24 +98,24 @@ class AppMonitor:
 
             if platform.system() == "Windows":
                 hwnd = win32gui.GetForegroundWindow()
-                if any(browser in win32gui.GetWindowText(hwnd) for browser in win_browswers):
+                win_name = win32gui.GetWindowText(hwnd)
+                if any(browser in win_name for browser in win_browswers):
                     url = self._get_browser_url()
                     if url:
                         url = url.split('/')[2] if '//' in url else url.split('/')[0]
                         return url
-                _, pid = win32process.GetWindowThreadProcessId(hwnd)
-                for proc in psutil.process_iter(['pid', 'name']):
-                    if proc.info['pid'] == pid:
-                        return proc.info['name']
             elif platform.system() == "Darwin":
                 active_app = NSWorkspace.sharedWorkspace().frontmostApplication()
-                browser_name = [browser for browser in mac_browsers if browser in active_app.localizedName()]
+                win_name = active_app.localizedName()
+                browser_name = [browser for browser in mac_browsers if browser in win_name]
                 if browser_name:
                     url = self._get_browser_url_mac(browser_name[0])
                     if url:
                         url = url.split('/')[2] if '//' in url else url.split('/')[0]
                         return url
-                return active_app.localizedName()
+            if win_name == self.title:
+                return None
+            return win_name
         except Exception as e:
             print(f"Error detecting focused app: {e}")
         return None
