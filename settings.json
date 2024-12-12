@@ -7,9 +7,9 @@
     "long_break": 15,
     "long_break_interval": 4,
     "theme": "green",
-    "mode": "Light",
+    "mode": "Dark",
     "dynamic_schedule": "pomodoro",
     "response_type": 1,
     "reminder": "low",
-    "afk_threshold": 5
+    "afk_threshold": 0
 }
