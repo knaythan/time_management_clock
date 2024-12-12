@@ -3,7 +3,7 @@ from tkinter import ttk
 import sqlite3
 
 class ProductivityDashboard:
-    def __init__(self, root, app_monitor, rename_callback, db_path):
+    def __init__(self, root, app_monitor, rename_callback, db_path, afk_threshold):
         self.root = root
         self.app_monitor = app_monitor
         self.tree = None
@@ -11,7 +11,7 @@ class ProductivityDashboard:
         self.update_job = None  # To track scheduled updates
         self.db_path = db_path  # Add db_path attribute
         self.viewing_total_times = False  # Track if viewing total times
-        self.scheduler_window = None  # Track the scheduler window
+        self.schedule = None  # Track the scheduler window
         self.schedule_name = None
 
     def display(self):
@@ -212,50 +212,51 @@ class ProductivityDashboard:
         for widget in self.button_frame.winfo_children():
             widget.destroy()
 
+        def select_schedule():
+            # Create a new window for schedule selection
+            input_window = ctk.CTkToplevel(self.root)
+            input_window.title("Select Schedule")
+
+            # Center the window on the screen
+            input_window.update_idletasks()
+            input_window.update_idletasks()
+            width = 300
+            height = 300
+
+            x = (self.root.winfo_width() // 2) - (width // 2)
+            y = (self.root.winfo_height() // 2) - (height // 2)
+
+            input_window.geometry(f'{width}x{height}+{x}+{y}')
+
+            # Focus on the window
+            input_window.focus_force()
+            input_window.transient(self.root)
+
+            # Schedule dropdown
+            ctk.CTkLabel(input_window, text="Select Schedule:").pack(pady=5)
+            schedule_name = ctk.StringVar(value=schedules[0] if schedules else "")
+            schedule_dropdown = ctk.CTkOptionMenu(
+                input_window,
+                values=schedules,
+                variable=schedule_name
+            )
+            schedule_dropdown.pack(pady=5)
+
+            def submit_schedule():
+                self.schedule_name = schedule_name.get()
+                input_window.destroy()  # Close the input window after submission
+                self.load_selected_schedule(self.schedule_name)  # Load the selected schedule
+
+            # Submit button
+            ctk.CTkButton(input_window, text="Submit", command=submit_schedule).pack(pady=10)
+
         # Add buttons for managing tasks
         ctk.CTkButton(self.button_frame, text="Add Task", command=self.add_task).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(self.button_frame, text="Edit Task", command=self.edit_task).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(self.button_frame, text="Remove Task", command=self.remove_task).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(self.button_frame, text="Exit", command=self.exit_task_view).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Select Schedule", command=select_schedule).pack(side=ctk.LEFT, padx=5)
 
-        # Create a new window for schedule selection
-        input_window = ctk.CTkToplevel(self.root)
-        input_window.title("Select Schedule")
-        input_window.geometry("300x200")
-
-        # Center the window on the screen
-        input_window.update_idletasks()
-        input_window.update_idletasks()
-        width = input_window.winfo_width()
-        height = input_window.winfo_height()
-
-        x = (self.root.winfo_width() // 2) - (width // 2)
-        y = (self.root.winfo_height() // 2) - (height // 2)
-
-        input_window.geometry(f'{width}x{height}+{x}+{y}')
-
-        # Focus on the window
-        input_window.focus_force()
-
-        # Schedule dropdown
-        ctk.CTkLabel(input_window, text="Select Schedule:").pack(pady=5)
-        schedule_name = ctk.StringVar(value=schedules[0] if schedules else "")
-        schedule_dropdown = ctk.CTkOptionMenu(
-            input_window,
-            values=schedules,
-            variable=schedule_name
-        )
-        schedule_dropdown.pack(pady=5)
-
-        def submit_schedule():
-            self.schedule_name = schedule_name.get()
-            input_window.destroy()  # Close the input window after submission
-            self.load_selected_schedule(self.schedule_name)  # Load the selected schedule
-
-        # Submit button
-        ctk.CTkButton(input_window, text="Submit", command=submit_schedule).pack(pady=10)
-
-        
         
     def exit_task_view(self):
         """Exit the scheduler view and return to the normal view."""
@@ -283,22 +284,74 @@ class ProductivityDashboard:
         if not selected_item:
             return
 
-        task_name = self.tree.item(selected_item, 'values')[0]
-        new_name = ctk.CTkInputDialog(text="Enter new task name:", title="Edit Task").get_input()
-        if new_name and new_name.strip():
-            new_name = new_name.strip()
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+        item_tags = self.tree.item(selected_item, 'tags')
+        if not item_tags:
+            return
+
+        task_id = item_tags[0]
+
+        # Task type dropdown
+        input_window = ctk.CTkToplevel(self.root)
+        input_window.title("Edit Task")
+
+        # Center the window on the screen
+        input_window.update_idletasks()
+        width = 300
+        height = 300
+        
+        x = (self.root.winfo_width() // 2) - (width // 2)
+        y = (self.root.winfo_height() // 2) - (height // 2)
+
+        input_window.geometry(f'{width}x{height}+{x}+{y}')
+
+        # Focus on the window
+        input_window.focus_force()
+        input_window.transient(self.root)
+        
+        ctk.CTkLabel(input_window, text="Select Type:").pack(pady=5)
+        type_check = ctk.StringVar(value="PRODUCTIVE")
+        type_dropdown = ctk.CTkOptionMenu(
+            input_window,
+            values=["NONPRODUCTIVE", "PRODUCTIVE"],
+            variable=type_check
+        )
+        type_dropdown.pack(pady=5)
+
+        # Expected duration input
+        ctk.CTkLabel(input_window, text="Enter expected duration (minutes):").pack(pady=5)
+        duration_entry = ctk.CTkEntry(input_window)
+        duration_entry.pack(pady=5)
+        
+        def submit_edit():
+            duration = duration_entry.get().strip()
+            task_type = type_check.get()
+            if duration.isdigit():
+                self.update_task(task_id, task_type, int(duration) * 60)
+            else:
+                self.update_task(task_id, task_type, None)
+            input_window.destroy()
+            
+        ctk.CTkButton(input_window, text="Submit", command=submit_edit).pack(pady=10)
+        
+    def update_task(self, task_id, task_type, duration):
+        """Update the task in the database."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        if duration is not None:
+            cursor.execute("""
+                UPDATE schedule_times
+                SET type = ?, duration = ?
+                WHERE id = ?
+            """, (task_type, duration, task_id))
+        else:
             cursor.execute("""
                 UPDATE schedule_times
                 SET type = ?
-                WHERE type = ? AND id = (
-                    SELECT id FROM schedule WHERE name = ?
-                )
-            """, (new_name, task_name, self.schedule_name))
-            conn.commit()
-            conn.close()
-            self.load_tasks()
+                WHERE id = ?
+            """, (task_type, task_id))
+        conn.commit()
+        conn.close()
+        self.load_selected_schedule(self.schedule_name)
 
     def get_dynamic_schedule(self, name):
         """Retrieve the dynamic schedule settings."""
@@ -313,12 +366,12 @@ class ProductivityDashboard:
         next_id = data[0]
         schedule_items = []
         while next_id:
-            cursor.execute("SELECT type, duration, next_id FROM schedule_times WHERE id = ?", (next_id,))
+            cursor.execute("SELECT type, duration, id, next_id FROM schedule_times WHERE id = ?", (next_id,))
             row = cursor.fetchone()
             if not row:
                 break
-            schedule_items.append((row[0], row[1]))  # Append (type, duration)
-            next_id = row[2]
+            schedule_items.append((row[0], row[1], row[2]))  # Append (type, duration)
+            next_id = row[3]
         conn.close()
         return schedule_items
 
@@ -328,9 +381,23 @@ class ProductivityDashboard:
             self.schedule_name = selected_schedule  # Set the active schedule name
             self.tree.delete(*self.tree.get_children())  # Clear existing data
             dynamic_schedule = self.get_dynamic_schedule(self.schedule_name)
+            self.schedule = dynamic_schedule
             for slot in dynamic_schedule:
-                expected_duration = slot[1]
-                self.tree.insert('', 'end', values=(slot[0], expected_duration))
+                expected_duration = format_time(slot[1])
+                self.tree.insert('', 'end', values=(slot[0], expected_duration), tags=(slot[2],))
+
+            self.tree.tag_bind('all', '<ButtonRelease-1>', self.on_task_click)
+
+    def on_task_click(self, event):
+        """Handle task click event to access the hidden id."""
+        selected_item = self.tree.focus()
+        if not selected_item:
+            return
+
+        item_tags = self.tree.item(selected_item, 'tags')
+        if item_tags:
+            task_id = item_tags[0]
+            print(f"Task ID: {task_id}")
 
 
     def add_task(self):
@@ -338,18 +405,20 @@ class ProductivityDashboard:
         # Create a new window for task input
         input_window = ctk.CTkToplevel(self.root)
         input_window.title("Add Task")
-        input_window.geometry("400x400")
 
         # Center the window on the screen
         input_window.update_idletasks()
-        width = input_window.winfo_width()
-        height = input_window.winfo_height()
-        x = (input_window.winfo_screenwidth() // 2) - (width // 2)
-        y = (input_window.winfo_screenheight() // 2) - (height // 2)
+        width = 300
+        height = 300
+        
+        x = (self.root.winfo_width() // 2) - (width // 2)
+        y = (self.root.winfo_height() // 2) - (height // 2)
+
         input_window.geometry(f'{width}x{height}+{x}+{y}')
 
         # Focus on the window
         input_window.focus_force()
+        input_window.transient(self.root)
 
         # Task name input
         ctk.CTkLabel(input_window, text="Enter task name:").pack(pady=5)
@@ -428,45 +497,6 @@ class ProductivityDashboard:
         conn.commit()
         conn.close()
         self.load_tasks()
-        
-    def view_tasks(self):
-        """Create a dropdown menu to view and select user-created schedules."""
-        self.stop_updates()  # Stop periodic updates
-
-        # Clear existing buttons
-        for widget in self.button_frame.winfo_children():
-            widget.destroy()
-
-        # Retrieve all schedules from the database
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT name FROM schedule")
-        schedules = [row[0] for row in cursor.fetchall()]
-        conn.close()
-
-        if schedules:
-            # Pre-select the first schedule if no schedule is set
-            if not self.schedule_name:
-                self.schedule_name = schedules[0]
-
-            self.schedule_var = ctk.StringVar(value=self.schedule_name)  # Default to the current schedule
-            self.schedule_dropdown = ctk.CTkOptionMenu(
-                self.button_frame,
-                variable=self.schedule_var,
-                values=schedules,
-                command=self.load_selected_schedule  # Load the schedule when selected
-            )
-            self.schedule_dropdown.pack(side=ctk.LEFT, padx=5)
-
-            # Automatically load the pre-selected schedule
-            self.load_selected_schedule(self.schedule_name)
-        else:
-            # No schedules available, prompt the user to create one
-            ctk.CTkLabel(self.button_frame, text="No schedules available").pack(side=ctk.LEFT, padx=5)
-        # Add buttons for exiting the task view
-        ctk.CTkButton(self.button_frame, text="Exit", command=self.exit_task_view).pack(side=ctk.LEFT, padx=5)
-
-
             
 
 
