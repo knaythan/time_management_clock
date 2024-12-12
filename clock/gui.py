@@ -107,6 +107,16 @@ class SmartClockApp:
         afk_detection_var = ctk.BooleanVar(value=self.settings.get("afk_detection"))
         ctk.CTkCheckBox(self.root, text="Enable AFK Detection", variable=afk_detection_var).pack(pady=5)
 
+        # Initialize afk_timer_var with a default value
+        afk_timer_var = ctk.IntVar(value=0)
+
+        # Check if AFK detection is enabled
+        if afk_detection_var.get():
+            # AFK Timer threshold
+            ctk.CTkLabel(self.root, text="AFK Timer Threshold (seconds):").pack(pady=5)
+            afk_timer_var.set(self.settings.get("afk_threshold"))
+            ctk.CTkEntry(self.root, textvariable=afk_timer_var).pack(pady=5)
+        
         # Dynamic scheduling options
         ctk.CTkLabel(self.root, text="Dynamic Scheduling:").pack(pady=5)
         dynamic_schedule_var = ctk.StringVar(value="pomodoro")  # Default technique
@@ -123,7 +133,7 @@ class SmartClockApp:
         ctk.CTkButton(
             button_frame,
             text="Save",
-            command=lambda: self.save_settings_with_theme_and_schedule(autosave_var, theme_var, mode_var, afk_detection_var, reminder_var, dynamic_schedule_var)
+            command=lambda: self.save_settings_with_theme_and_schedule(autosave_var, theme_var, mode_var, afk_detection_var, reminder_var, dynamic_schedule_var, afk_timer_var, update_ui=True, reopen_settings=True)
         ).pack(side=ctk.LEFT, padx=5)
 
         ctk.CTkButton(
@@ -131,9 +141,11 @@ class SmartClockApp:
             text="Exit",
             command=self.show_dashboard
         ).pack(side=ctk.LEFT, padx=5)
+        
+        
 
 
-    def save_settings_with_theme_and_schedule(self, autosave_var, theme_var, mode_var, afk_detection_var, reminder_var, dynamic_schedule_var):
+    def save_settings_with_theme_and_schedule(self, autosave_var, theme_var, mode_var, afk_detection_var, reminder_var, dynamic_schedule_var, afk_threshold_var, update_ui=False, reopen_settings=False):
         """Save settings, theme, and mode, and apply changes with a restart prompt."""
         self.settings.update("autosave", autosave_var.get())
         self.settings.update("afk_detection", afk_detection_var.get())
@@ -149,10 +161,20 @@ class SmartClockApp:
             self.settings.update("theme", theme_var.get())
             self.settings.update("mode", mode_var.get())    
             self.settings.save()
-            self.show_restart_popup()
+            self.show_restart_popup(reopen_settings)
         self.settings.save()
-    
-    def show_restart_popup(self):
+        self.app_monitor.afk_threshold = int(afk_threshold_var.get())  # Update AFK threshold in app monitor
+
+        if update_ui:
+            self.apply_settings()
+
+    def apply_settings(self):
+        """Apply settings without requiring a restart."""
+        self.root.configure(bg=self.settings.get("theme"))
+        # Apply other settings as needed
+        self.show_dashboard()
+
+    def show_restart_popup(self, reopen_settings):
         """Show a popup window indicating a restart is required."""
         popup = ctk.CTkToplevel(self.root)
         popup.title("Restart Required")
@@ -171,17 +193,19 @@ class SmartClockApp:
         button_frame = ctk.CTkFrame(popup)
         button_frame.pack(pady=10)
 
-        ctk.CTkButton(button_frame, text="Restart", command=lambda: [popup.destroy(), self.restart_program()]).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(button_frame, text="Restart", command=lambda: [popup.destroy(), self.restart_program(reopen_settings)]).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(button_frame, text="Cancel", command=popup.destroy).pack(side=ctk.LEFT, padx=5)
 
         self.root.wait_window(popup)
     
     
-    def restart_program(self):
+    def restart_program(self, reopen_settings):
         """Restart the program."""
         self.root.destroy()
         from main import main
         main()
+        if reopen_settings:
+            self.open_settings()
 
 
     def rename_app(self, old_name, new_name):
