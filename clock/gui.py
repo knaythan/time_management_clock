@@ -72,7 +72,7 @@ class SmartClockApp:
 
         # Autosave toggle
         autosave_var = ctk.BooleanVar(value=self.settings.get("autosave"))
-        ctk.CTkCheckBox(self.root, text="Enable Autosave", variable=autosave_var).pack(pady=5)
+        ctk.CTkCheckBox(self.root, text="Enable Autosave for Focus Times", variable=autosave_var).pack(pady=5)
 
         # Theme and mode selection dropdowns
         theme_var = ctk.StringVar(value=self.settings.get("theme"))  # Default theme
