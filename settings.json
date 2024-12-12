@@ -8,7 +8,7 @@
     "long_break_interval": 4,
     "theme": "green",
     "mode": "Dark",
-    "dynamic_schedule": "pomodoro",
+    "dynamic_schedule": "eat the frog",
     "response_type": 1,
     "reminder": "low",
     "afk_threshold": 0
