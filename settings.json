@@ -1,15 +1,15 @@
 {
-    "afk_detection": true,
+    "afk_detection": false,
     "custom_app_names": {},
     "autosave": true,
     "pomodoro_timer": 25,
     "short_break": 5,
     "long_break": 15,
     "long_break_interval": 4,
-    "theme": "green",
-    "mode": "Dark",
-    "dynamic_schedule": "eat the frog",
+    "theme": "blue",
+    "mode": "Light",
+    "dynamic_schedule": "pomodoro",
     "response_type": 1,
-    "reminder": "low",
+    "reminder": "high",
     "afk_threshold": 0
 }

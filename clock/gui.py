@@ -7,6 +7,7 @@ from settings import Settings
 from calendar_view import CalendarView
 import sqlite3
 import platform
+from stop_distract import StopDistract
 
 class SmartClockApp:
     def __init__(self, root):
@@ -39,6 +40,10 @@ class SmartClockApp:
 
         # Display initial dashboard
         self.show_dashboard()
+        
+        # Stop distraction
+        self.stop_distract = StopDistract(self.dashboard, self.settings.get("reminder"), self.app_monitor)
+        
 
     def show_dashboard(self):
         """Display the Dashboard View and restart periodic updates."""
@@ -286,15 +291,13 @@ class SmartClockApp:
             """
         )
         conn.commit()
-        cursor.execute("SELECT * FROM schedule_times;")
-        apps = cursor.fetchall()
-        print(apps)
         conn.close()
 
     def on_close(self):
         if self.settings.get("autosave"):
             self.app_monitor.save_focus_times(self.db_path)
         self.root.destroy()
+        self.stop_distract.check_thread._stop()
 
     def on_minimize(self):
         self.root.withdraw()

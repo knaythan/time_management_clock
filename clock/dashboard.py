@@ -13,6 +13,7 @@ class ProductivityDashboard:
         self.viewing_total_times = False  # Track if viewing total times
         self.schedule = None  # Track the scheduler window
         self.schedule_name = None
+        self.status = None
 
     def display(self):
         """Display the dashboard with a tree view of focused app times."""
@@ -323,7 +324,13 @@ class ProductivityDashboard:
         duration_entry.pack(pady=5)
         
         def submit_edit():
-            duration = duration_entry.get().strip()
+            try:
+                duration = float(duration_entry.get().strip())
+                if duration <= 0:
+                    raise ValueError("Duration must be greater than 0")
+            except ValueError as e:
+                ctk.CTkMessageBox.show_error("Invalid Input", str(e))
+                return
             task_type = type_check.get()
             if duration:
                 self.update_task(task_id, task_type, float(duration) * 60)
@@ -443,7 +450,13 @@ class ProductivityDashboard:
             task_name = task_name_entry.get().strip()
             task_type = type_check.get()
             self.schedule_name = task_name
-            expected_duration = duration_entry.get().strip()
+            try:
+                expected_duration = float(duration_entry.get().strip())
+                if expected_duration <= 0:
+                    raise ValueError("Duration must be greater than 0")
+            except ValueError as e:
+                ctk.CTkMessageBox.show_error("Invalid Input", str(e))
+                return
 
             if task_name and expected_duration:
                 expected_duration = float(expected_duration) * 60
@@ -536,6 +549,8 @@ class ProductivityDashboard:
         if self.current_task_index >= len(self.schedule):
             self.exit_task_view()  # Exit when all tasks are done
             return
+        
+        self.status = self.schedule[self.current_task_index][0]
 
         task_type, duration, task_id = self.schedule[self.current_task_index]
         self.current_task_index += 1

@@ -30,6 +30,7 @@ class AppMonitor:
         self.afk_threshold = afk_threshold  # Set AFK threshold from settings
         self.afk_app_name = "afk_time"
         self.afk_thread = None  # Add this line to track the AFK detection thread
+        self.minimize = False  # Initialize the minimize attribute
 
     def start_monitoring(self):
         """Start monitoring the focused application."""
@@ -98,67 +99,79 @@ class AppMonitor:
                 if control.ControlTypeName == "Edit" or "address" in control.Name.lower() or "url" in control.Name.lower():
                     return control.GetValuePattern().Value
                 # Recursively search child controls
-                sub_result = self.find_address_bar(control)
+                sub_result = self._find_address_bar(control)
                 if sub_result:
                     return sub_result
         except Exception:
             return None  # Suppress errors and return None
         return None
 
-    def _get_browser_url(self, browser_name="Google Chrome"):
+    def _get_browser_url(self):
         """Fetch the URL from the browser's address bar."""
-        if self.minimize:
-            time.sleep(5)
         try:
-            url = None
-            if platform.system() == "Windows":
-                # Get the foreground window control
-                with auto.UIAutomationInitializerInThread():
-                    window = auto.GetForegroundControl()
-                if not window:
-                    pass
+            # Get the foreground window control
+            with auto.UIAutomationInitializerInThread():
+                window = auto.GetForegroundControl()
+            if not window:
+                pass
 
-                # Check if the window is a browser
-                if "chrome" in window.Name.lower() or "edge" in window.Name.lower():
-                    url = self._find_address_bar(window)
-                    return url if url else None
+            # Check if the window is a browser
+            if "chrome" in window.Name.lower() or "edge" in window.Name.lower():
+                url = self._find_address_bar(window)
+                return url if url else None
 
-                return None
-            elif platform.system() != "Darwin":
-                script = f"""
-                tell application "{browser_name}"
-                    if (count of windows) > 0 then
-                        return URL of {"current tab of front window" if browser_name in ["Safari", "Firefox"] else "active tab of front window"}
-                    else
-                        return ""
-                    end if
-                end tell
-                """
-                url = os.popen(f"osascript -e '{script}'").read().strip()
-                    
-            if url:
-                url = url.split('/')[2] if '//' in url else url.split('/')[0]
-            return url
+            return None
         except Exception:
             return "Error fetching browser URL."
+
+    def _get_browser_url_mac(self, browser_name="Google Chrome"):
+        """Fetch the URL from the specified browser on macOS."""
+        try:
+            script = f"""
+            tell application "{browser_name}"
+                if (count of windows) > 0 then
+                    return URL of {"current tab of front window" if browser_name in ["Safari", "Firefox"] else "active tab of front window"}
+                else
+                    return ""
+                end if
+            end tell
+            """
+            url = os.popen(f"osascript -e '{script}'").read().strip()
+            return url if url else None  # Return None if no URL is found
+        except Exception as e:
+            return f"Error fetching URL from {browser_name}: {str(e)}"
 
     def _get_focused_app(self):
         """Get the name of the currently focused application."""
         try:
             win_browswers = ["Chrome", "Edge"]
             mac_browsers = ["Google Chrome", "Safari"]
+            win_name = None
 
             if platform.system() == "Windows":
                 hwnd = win32gui.GetForegroundWindow()
                 win_name = win32gui.GetWindowText(hwnd)
-                if any(browser in win_name for browser in win_browswers):
-                    return self._get_browser_url()
+                if win_name and any(browser in win_name for browser in win_browswers):
+                    if self.minimize:
+                        time.sleep(5)  # Wait for the URL to load
+                    url = self._get_browser_url()
+                    if url:
+                        url = url.split('/')[2] if '//' in url else url.split('/')[0]
+                        return url
+                return win_name
             elif platform.system() == "Darwin":
                 active_app = NSWorkspace.sharedWorkspace().frontmostApplication()
+                browser_name = [browser for browser in mac_browsers if browser in active_app.localizedName()]
                 win_name = active_app.localizedName()
                 browser_name = [browser for browser in mac_browsers if browser in win_name]
                 if browser_name:
-                    return self._get_browser_url(browser_name[0])
+                    if self.minimize:
+                        time.sleep(5)  # Wait for the URL to load
+                    url = self._get_browser_url_mac(browser_name[0])
+                    if url:
+                        url = url.split('/')[2] if '//' in url else url.split('/')[0]
+                        return url
+                return active_app.localizedName()
             if win_name == self.title:
                 return None
             return win_name
