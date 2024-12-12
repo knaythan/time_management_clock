@@ -29,6 +29,7 @@ class AppMonitor:
         self.last_activity_time = time.time()
         self.afk_threshold = afk_threshold  # Set AFK threshold from settings
         self.afk_app_name = "afk_time"
+        self.afk_thread = None  # Add this line to track the AFK detection thread
 
     def start_monitoring(self):
         """Start monitoring the focused application."""
@@ -41,12 +42,17 @@ class AppMonitor:
 
     def start_afk_detection(self):
         """Start AFK detection by monitoring keyboard and mouse activity."""
-        self.afk_detection = True
-        Thread(target=self._afk_monitor_loop, daemon=True).start()
+        if not self.afk_detection:
+            self.afk_detection = True
+            self.afk_thread = Thread(target=self._afk_monitor_loop, daemon=True)
+            self.afk_thread.start()
 
     def stop_afk_detection(self):
         """Stop AFK detection."""
         self.afk_detection = False
+        if self.afk_thread:
+            self.afk_thread.join()  # Ensure the thread is properly stopped
+            self.afk_thread = None
         
     def start_minimize(self):
         """Start minimizing unproductive apps."""

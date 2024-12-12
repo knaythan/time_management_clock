@@ -122,7 +122,7 @@ class SmartClockApp:
         dynamic_schedule_var = ctk.StringVar(value="pomodoro")  # Default technique
         ctk.CTkOptionMenu(
             self.root,
-            values=["pomodoro", "custom"],
+            values=["pomodoro", "eat the frog", "custom"],
             variable=dynamic_schedule_var
         ).pack(pady=5)
 
