@@ -13,7 +13,7 @@ class SmartClockApp:
         self.root = root
         title = "Smart Time-Management Clock"
         self.root.title(title)
-        self.root.geometry("800x600")
+        self.root.geometry("1000x800")
 
         # Initialize core components
         if platform.system() == "Windows":

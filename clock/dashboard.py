@@ -219,7 +219,6 @@ class ProductivityDashboard:
 
             # Center the window on the screen
             input_window.update_idletasks()
-            input_window.update_idletasks()
             width = 300
             height = 300
 
@@ -256,8 +255,9 @@ class ProductivityDashboard:
         ctk.CTkButton(self.button_frame, text="Remove Task", command=self.remove_task).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(self.button_frame, text="Exit", command=self.exit_task_view).pack(side=ctk.LEFT, padx=5)
         ctk.CTkButton(self.button_frame, text="Select Schedule", command=select_schedule).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Start", command=self.start_schedule).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Finish", command=self.finish_task_early).pack(side=ctk.LEFT, padx=5)
 
-        
     def exit_task_view(self):
         """Exit the scheduler view and return to the normal view."""
         self.display_times()
@@ -325,8 +325,8 @@ class ProductivityDashboard:
         def submit_edit():
             duration = duration_entry.get().strip()
             task_type = type_check.get()
-            if duration.isdigit():
-                self.update_task(task_id, task_type, int(duration) * 60)
+            if duration:
+                self.update_task(task_id, task_type, float(duration) * 60)
             else:
                 self.update_task(task_id, task_type, None)
             input_window.destroy()
@@ -399,7 +399,6 @@ class ProductivityDashboard:
             task_id = item_tags[0]
             print(f"Task ID: {task_id}")
 
-
     def add_task(self):
         """Add a new task to the scheduler."""
         # Create a new window for task input
@@ -446,58 +445,155 @@ class ProductivityDashboard:
             self.schedule_name = task_name
             expected_duration = duration_entry.get().strip()
 
-            if task_name and expected_duration.isdigit():
-                expected_duration = int(expected_duration) * 60
+            if task_name and expected_duration:
+                expected_duration = float(expected_duration) * 60
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
                 cursor.execute("SELECT id FROM schedule WHERE name = ?", (self.schedule_name,))
                 schedule_id = cursor.fetchone()
-            if not schedule_id:
-                # Insert a new schedule if it doesn't exist
-                cursor.execute("INSERT INTO schedule_times (next_id, type, duration) VALUES (NULL, ?, ?)", (task_type, expected_duration))
-                schedule_id = cursor.lastrowid
-                print(self.schedule_name)
-                cursor.execute("INSERT INTO schedule (name, id) VALUES (?, ?)", (self.schedule_name, schedule_id,))
-                conn.commit()
-            else:
-                schedule_id = schedule_id[0]
-                has_next = True
-                while has_next:
-                    cursor.execute("SELECT next_id FROM schedule_times WHERE id = ?", (schedule_id,))
-                    next_id = cursor.fetchone()
-                    if not next_id[0]:
-                        has_next = False
-                    else:
-                        schedule_id = next_id[0]
-                cursor.execute("INSERT INTO schedule_times (next_id, type, duration) VALUES (NULL, ?, ?)", (task_type, expected_duration))
-                new_id = cursor.lastrowid
-                cursor.execute("UPDATE schedule_times SET next_id = ? WHERE id = ?", (new_id, schedule_id))
-                conn.commit()
-            conn.close()
-            input_window.destroy()  # Close the input window after submission
+                if not schedule_id:
+                    # Insert a new schedule if it doesn't exist
+                    cursor.execute("INSERT INTO schedule_times (next_id, type, duration) VALUES (NULL, ?, ?)", (task_type, expected_duration))
+                    schedule_id = cursor.lastrowid
+                    cursor.execute("INSERT INTO schedule (name, id) VALUES (?, ?)", (self.schedule_name, schedule_id,))
+                    conn.commit()
+                else:
+                    schedule_id = schedule_id[0]
+                    has_next = True
+                    while has_next:
+                        cursor.execute("SELECT next_id FROM schedule_times WHERE id = ?", (schedule_id,))
+                        next_id = cursor.fetchone()
+                        if not next_id:
+                            has_next = False
+                        else:
+                            schedule_id = next_id[0]
+                    cursor.execute("INSERT INTO schedule_times (next_id, type, duration) VALUES (NULL, ?, ?)", (task_type, expected_duration))
+                    new_id = cursor.lastrowid
+                    cursor.execute("UPDATE schedule_times SET next_id = ? WHERE id = ?", (new_id, schedule_id))
+                    conn.commit()
+                conn.close()
+                input_window.destroy()  # Close the input window after submission
 
         # Submit button
         ctk.CTkButton(input_window, text="Submit", command=submit_task).pack(pady=10)
 
     def remove_task(self):
-        """Remove the selected task from the scheduler."""
         selected_item = self.tree.focus()
         if not selected_item:
             return
 
-        task_name = self.tree.item(selected_item, 'values')[0]
+        task_id = self.tree.item(selected_item, 'tags')[0]
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("""
-            DELETE FROM schedule_times 
-            WHERE type = ? AND id = (
-                SELECT id FROM schedule WHERE name = ?
-            )
-        """, (task_name, self.schedule_name))
+
+        # Find the previous task that references this task
+        cursor.execute("SELECT id FROM schedule_times WHERE next_id = ?", (task_id,))
+        previous_task = cursor.fetchone()
+
+        # Find the next task that this task references
+        cursor.execute("SELECT next_id FROM schedule_times WHERE id = ?", (task_id,))
+        next_task = cursor.fetchone()
+
+        # Check if the task being deleted is the one referenced by the schedule name
+        cursor.execute("SELECT id FROM schedule WHERE name = ?", (self.schedule_name,))
+        schedule_id = cursor.fetchone()
+
+        if schedule_id and schedule_id[0] == task_id:
+            if next_task:
+                # Update the schedule to reference the next task
+                cursor.execute("UPDATE schedule SET id = ? WHERE name = ?", (next_task[0], self.schedule_name))
+            else:
+                # If there is no next task, delete the schedule
+                cursor.execute("DELETE FROM schedule WHERE name = ?", (self.schedule_name,))
+
+        # Delete the selected task
+        cursor.execute("DELETE FROM schedule_times WHERE id = ?", (task_id,))
+
+        if previous_task:
+            if next_task:
+                # Update the previous task to reference the next task
+                cursor.execute("UPDATE schedule_times SET next_id = ? WHERE id = ?", (next_task[0], previous_task[0]))
+            else:
+                # If there is no next task, set the next_id of the previous task to NULL
+                cursor.execute("UPDATE schedule_times SET next_id = NULL WHERE id = ?", (previous_task[0],))
+
         conn.commit()
         conn.close()
-        self.load_tasks()
-            
+
+        self.load_selected_schedule(self.schedule_name)
+        
+    def start_schedule(self):
+        """Start the schedule countdown."""
+        if not self.schedule:
+            return
+
+        self.current_task_index = 0
+        self.run_task()
+
+    def run_task(self):
+        """Run the current task in the schedule."""
+        if self.current_task_index >= len(self.schedule):
+            self.exit_task_view()  # Exit when all tasks are done
+            return
+
+        task_type, duration, task_id = self.schedule[self.current_task_index]
+        self.current_task_index += 1
+
+        self.tree.delete(*self.tree.get_children())  # Clear existing data
+        self.tree.insert('', 'end', values=(task_type, format_time(duration)))
+
+        self.countdown(duration)
+
+    def countdown(self, remaining_time):
+        """Countdown timer for the current task."""
+        if remaining_time <= 0:
+            if self.current_task_index > 0 and self.current_task_index < len(self.schedule):
+                previous_task_type = self.schedule[self.current_task_index - 1][0]
+                current_task_type = self.schedule[self.current_task_index][0]
+            else:
+                self.run_task()
+                return
+            # Create a popup window with the dialog
+            popup = ctk.CTkToplevel(self.root)
+            popup.title("Task Transition")
+
+            # Center the popup window on the screen
+            popup.update_idletasks()
+            width = 300
+            height = 150
+            x = (self.root.winfo_width() // 2) - (width // 2)
+            y = (self.root.winfo_height() // 2) - (height // 2)
+            popup.geometry(f'{width}x{height}+{x}+{y}')
+
+            # Focus on the popup window
+            popup.focus_force()
+            popup.transient(self.root)
+
+            # Display the appropriate message
+            if previous_task_type == "NONPRODUCTIVE" and current_task_type == "PRODUCTIVE":
+                message = "Time to get to work!"
+            elif previous_task_type == "PRODUCTIVE" and current_task_type == "NONPRODUCTIVE":
+                message = "Time to get some rest!"
+            else:
+                message = "Task transition"
+
+            ctk.CTkLabel(popup, text=message).pack(pady=20)
+            ctk.CTkButton(popup, text="OK", command=popup.destroy).pack(pady=10)
+
+            # Wait for the user to click the OK button before continuing
+            self.root.wait_window(popup)
+            self.run_task()  # Move to the next task
+            return
+
+        self.tree.item(self.tree.get_children()[0], values=(self.tree.item(self.tree.get_children()[0], 'values')[0], format_time(remaining_time)))
+        self.update_job = self.root.after(1000, self.countdown, remaining_time - 1)
+
+    def finish_task_early(self):
+        """Finish the current task early and move to the next one."""
+        if self.update_job:
+            self.root.after_cancel(self.update_job)
+            self.run_task()
 
 
 def format_time(seconds):
