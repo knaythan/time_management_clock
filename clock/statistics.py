@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import sqlite3
 from datetime import timedelta, date
+from utils import format_time
 
 class Statistics:
     def __init__(self, root):
@@ -51,26 +52,6 @@ class Statistics:
         data = cursor.fetchall()
         conn.close()
 
-        stats_text = "\n".join([f"{app}: {self._format_time(time)}" for app, time in data])
+        stats_text = "\n".join([f"{app}: {format_time(time)}" for app, time in data])
         label.configure(text=stats_text)
 
-    def format_time(seconds):
-        """Convert time in seconds to a human-readable format with fixed units."""
-        sec = int(seconds)
-        if sec < 60:
-            return f"{sec} s"
-        elif sec < 3600:
-            minutes = sec // 60
-            sec = sec % 60
-            return f"{minutes} min{'s' if minutes != 1 else ''} {sec} s"
-        elif sec < 86400:
-            hours = sec // 3600
-            minutes = (sec % 3600) // 60
-            sec = sec % 60
-            return f"{hours} hr{'s' if hours != 1 else ''} {minutes} min{'s' if minutes != 1 else ''} {sec} s"
-        else:
-            days = sec // 86400
-            hours = (sec % 86400) // 3600
-            minutes = (sec % 3600) // 60
-            sec = sec % 60
-            return f"{days} day{'s' if days != 1 else ''} {hours} hr{'s' if hours != 1 else ''} {minutes} min{'s' if minutes != 1 else ''} {sec} s"

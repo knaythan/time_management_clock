@@ -1,19 +1,21 @@
 import customtkinter as ctk
 from tkinter import ttk
 import sqlite3
+from utils import show_ok_popup, format_time
 
 class ProductivityDashboard:
-    def __init__(self, root, app_monitor, rename_callback, db_path, afk_threshold):
+    def __init__(self, root, app_monitor, rename_callback, db_path, stop_distract):
         self.root = root
         self.app_monitor = app_monitor
+        self.stop_distract = stop_distract
         self.tree = None
         self.rename_callback = rename_callback
         self.update_job = None  # To track scheduled updates
         self.db_path = db_path  # Add db_path attribute
         self.viewing_total_times = False  # Track if viewing total times
+        self.schedules = []  # Track all schedules
         self.schedule = None  # Track the scheduler window
         self.schedule_name = None
-        self.status = None
 
     def display(self):
         """Display the dashboard with a tree view of focused app times."""
@@ -24,10 +26,14 @@ class ProductivityDashboard:
 
         self.button_frame = ctk.CTkFrame(self.root)
         self.button_frame.pack(pady=10)
+        
+        self.button_frame.grid_columnconfigure(0, weight=1)
+        self.button_frame.grid_columnconfigure(1, weight=1)
+        self.button_frame.grid_columnconfigure(2, weight=1)
 
-        ctk.CTkButton(self.button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="View Total Times", command=self.view_total_times).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Scheduler", command=self.open_scheduler).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Save Times", command=self.save_focus_times).grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.button_frame, text="View Total Times", command=self.view_total_times).grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.button_frame, text="Scheduler", command=self.open_scheduler).grid(row=0, column=2, padx=5, pady=5, sticky="ew")
 
         self.display_times()  # Start periodic updates
 
@@ -149,11 +155,15 @@ class ProductivityDashboard:
         # Clear existing buttons
         for widget in self.button_frame.winfo_children():
             widget.destroy()
+            
+        self.button_frame.grid_columnconfigure(0, weight=1)
+        self.button_frame.grid_columnconfigure(1, weight=1)
+        self.button_frame.grid_columnconfigure(2, weight=1)
 
         # Add new buttons for sorting and exiting
-        ctk.CTkButton(self.button_frame, text="Sort Ascending", command=lambda: self.sort_treeview("asc", records)).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Sort Descending", command=lambda: self.sort_treeview("desc", records)).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Exit", command=self.exit_total_times_view).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Sort Ascending", command=lambda: self.sort_treeview("asc", records)).grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.button_frame, text="Sort Descending", command=lambda: self.sort_treeview("desc", records)).grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.button_frame, text="Exit", command=self.exit_total_times_view).grid(row=0, column=2, padx=5, pady=5, sticky="ew")
 
     def sort_treeview(self, order, records):
         """Sort the tree view based on the total focus time."""
@@ -180,11 +190,15 @@ class ProductivityDashboard:
         # Clear existing buttons
         for widget in self.button_frame.winfo_children():
             widget.destroy()
+            
+        self.button_frame.grid_columnconfigure(0, weight=1)
+        self.button_frame.grid_columnconfigure(1, weight=1)
+        self.button_frame.grid_columnconfigure(2, weight=1)
 
         # Add original buttons
-        ctk.CTkButton(self.button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="View Total Times", command=self.view_total_times).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Scheduler", command=self.open_scheduler).pack(side=ctk.LEFT, padx=5)
+        ctk.CTkButton(self.button_frame, text="Save Times", command=self.save_focus_times).grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.button_frame, text="View Total Times", command=self.view_total_times).grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.button_frame, text="Scheduler", command=self.open_scheduler).grid(row=0, column=2, padx=5, pady=5, sticky="ew")
 
     def open_scheduler(self):
         """Open the scheduler window to manage tasks."""
@@ -204,60 +218,73 @@ class ProductivityDashboard:
         cursor.execute("SELECT name FROM schedule")
         schedules = [row[0] for row in cursor.fetchall()]
         conn.close()
+        
+        self.schedules = schedules
 
         if schedules:
-            self.schedule_name = schedules[0]  # Default to the first schedule
             self.load_selected_schedule(self.schedule_name)
 
         # Clear existing buttons
         for widget in self.button_frame.winfo_children():
             widget.destroy()
 
-        def select_schedule():
-            # Create a new window for schedule selection
-            input_window = ctk.CTkToplevel(self.root)
-            input_window.title("Select Schedule")
-
-            # Center the window on the screen
-            input_window.update_idletasks()
-            width = 300
-            height = 300
-
-            x = (self.root.winfo_width() // 2) - (width // 2)
-            y = (self.root.winfo_height() // 2) - (height // 2)
-
-            input_window.geometry(f'{width}x{height}+{x}+{y}')
-
-            # Focus on the window
-            input_window.focus_force()
-            input_window.transient(self.root)
-
-            # Schedule dropdown
-            ctk.CTkLabel(input_window, text="Select Schedule:").pack(pady=5)
-            schedule_name = ctk.StringVar(value=schedules[0] if schedules else "")
-            schedule_dropdown = ctk.CTkOptionMenu(
-                input_window,
-                values=schedules,
-                variable=schedule_name
-            )
-            schedule_dropdown.pack(pady=5)
-
-            def submit_schedule():
-                self.schedule_name = schedule_name.get()
-                input_window.destroy()  # Close the input window after submission
-                self.load_selected_schedule(self.schedule_name)  # Load the selected schedule
-
-            # Submit button
-            ctk.CTkButton(input_window, text="Submit", command=submit_schedule).pack(pady=10)
-
         # Add buttons for managing tasks
-        ctk.CTkButton(self.button_frame, text="Add Task", command=self.add_task).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Edit Task", command=self.edit_task).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Remove Task", command=self.remove_task).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Exit", command=self.exit_task_view).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Select Schedule", command=select_schedule).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Start", command=self.start_schedule).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(self.button_frame, text="Finish", command=self.finish_task_early).pack(side=ctk.LEFT, padx=5)
+        self.button_frame.grid_columnconfigure(0, weight=1)
+        self.button_frame.grid_columnconfigure(1, weight=1)
+        self.button_frame.grid_columnconfigure(2, weight=1)
+        self.button_frame.grid_columnconfigure(3, weight=1)
+        self.button_frame.grid_columnconfigure(4, weight=1)
+        self.button_frame.grid_columnconfigure(5, weight=1)
+        self.button_frame.grid_columnconfigure(6, weight=1)
+
+        ctk.CTkButton(self.button_frame, text="Add Task", command=self.add_task).grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.button_frame, text="Edit Task", command=self.edit_task).grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.button_frame, text="Remove Task", command=self.remove_task).grid(row=0, column=2, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.button_frame, text="Exit", command=self.exit_task_view).grid(row=0, column=3, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.button_frame, text="Select Schedule", command=self.select_schedule).grid(row=0, column=4, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.button_frame, text="Start", command=self.start_schedule).grid(row=0, column=5, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.button_frame, text="Finish", command=self.finish_task_early).grid(row=0, column=6, padx=5, pady=5, sticky="ew")
+        
+    def select_schedule(self):
+        # Create a new window for schedule selection
+        input_window = ctk.CTkToplevel(self.root)
+        input_window.title("Select Schedule")
+
+        # Center the window on the screen
+        input_window.update_idletasks()
+        width = 300
+        height = 300
+
+        x = (self.root.winfo_width() // 2) - (width // 2)
+        y = (self.root.winfo_height() // 2) - (height // 2)
+
+        input_window.geometry(f'{width}x{height}+{x}+{y}')
+
+        # Focus on the window
+        input_window.focus_force()
+        input_window.transient(self.root)
+        
+        schedules = self.schedules
+
+        # Schedule dropdown
+        ctk.CTkLabel(input_window, text="Select Schedule:").pack(pady=5)
+        schedule_name = ctk.StringVar(value=schedules[0] if schedules else "")
+        schedule_dropdown = ctk.CTkOptionMenu(
+            input_window,
+            values=schedules,
+            variable=schedule_name
+        )
+        schedule_dropdown.pack(pady=5)
+
+        def submit_schedule():
+            input_window.destroy()  # Close the input window after submission
+            for widget in self.root.winfo_children():
+                if isinstance(widget, ctk.CTkLabel) and widget.cget("text") == "Scheduler":
+                    widget.configure(text=schedule_name.get() + " Schedule")
+            self.load_selected_schedule(schedule_name.get())  # Load the selected schedule
+
+        # Submit button
+        ctk.CTkButton(input_window, text="Submit", command=submit_schedule).pack(pady=10)
 
     def exit_task_view(self):
         """Exit the scheduler view and return to the normal view."""
@@ -273,6 +300,10 @@ class ProductivityDashboard:
         # Clear existing buttons
         for widget in self.button_frame.winfo_children():
             widget.destroy()
+            
+        self.button_frame.grid_columnconfigure(0, weight=1)
+        self.button_frame.grid_columnconfigure(1, weight=1)
+        self.button_frame.grid_columnconfigure(2, weight=1)
             
         # Add original buttons
         ctk.CTkButton(self.button_frame, text="Save Times", command=self.save_focus_times).pack(side=ctk.LEFT, padx=5)
@@ -542,15 +573,26 @@ class ProductivityDashboard:
             return
 
         self.current_task_index = 0
+        self.stop_distract.start()
         self.run_task()
 
     def run_task(self):
         """Run the current task in the schedule."""
         if self.current_task_index >= len(self.schedule):
-            self.exit_task_view()  # Exit when all tasks are done
+            title = "Schedule Complete"
+            message = "You have gone through all scheduled times."
+            self.stop_distract.stop()
+
+            # Wait for the user to click the OK button before continuing
+            show_ok_popup(self.root, message, title=title)
+            
+            self.current_task_index = None
+            self.load_selected_schedule(self.schedule_name)
+            
             return
         
-        self.status = self.schedule[self.current_task_index][0]
+        self.stop_distract.status = self.schedule[self.current_task_index][0]
+        self.stop_distract.changed = True
 
         task_type, duration, task_id = self.schedule[self.current_task_index]
         self.current_task_index += 1
@@ -569,21 +611,6 @@ class ProductivityDashboard:
             else:
                 self.run_task()
                 return
-            # Create a popup window with the dialog
-            popup = ctk.CTkToplevel(self.root)
-            popup.title("Task Transition")
-
-            # Center the popup window on the screen
-            popup.update_idletasks()
-            width = 300
-            height = 150
-            x = (self.root.winfo_width() // 2) - (width // 2)
-            y = (self.root.winfo_height() // 2) - (height // 2)
-            popup.geometry(f'{width}x{height}+{x}+{y}')
-
-            # Focus on the popup window
-            popup.focus_force()
-            popup.transient(self.root)
 
             # Display the appropriate message
             if previous_task_type == "NONPRODUCTIVE" and current_task_type == "PRODUCTIVE":
@@ -593,11 +620,8 @@ class ProductivityDashboard:
             else:
                 message = "Task transition"
 
-            ctk.CTkLabel(popup, text=message).pack(pady=20)
-            ctk.CTkButton(popup, text="OK", command=popup.destroy).pack(pady=10)
-
             # Wait for the user to click the OK button before continuing
-            self.root.wait_window(popup)
+            show_ok_popup(self.root, message, title="Task Complete", ok_text="Next Task")
             self.run_task()  # Move to the next task
             return
 
@@ -609,25 +633,3 @@ class ProductivityDashboard:
         if self.update_job:
             self.root.after_cancel(self.update_job)
             self.run_task()
-
-
-def format_time(seconds):
-    """Convert time in seconds to a human-readable format with fixed units."""
-    sec = int(seconds)
-    if sec < 60:
-        return f"{sec} s"
-    elif sec < 3600:
-        minutes = sec // 60
-        sec = sec % 60
-        return f"{minutes} min{'s' if minutes != 1 else ''} {sec} s"
-    elif sec < 86400:
-        hours = sec // 3600
-        minutes = (sec % 3600) // 60
-        sec = sec % 60
-        return f"{hours} hr{'s' if hours != 1 else ''} {minutes} min{'s' if minutes != 1 else ''} {sec} s"
-    else:
-        days = sec // 86400
-        hours = (sec % 86400) // 3600
-        minutes = (sec % 3600) // 60
-        sec = sec % 60
-        return f"{days} day{'s' if days != 1 else ''} {hours} hr{'s' if hours != 1 else ''} {minutes} min{'s' if minutes != 1 else ''} {sec} s"

@@ -56,7 +56,6 @@ Smart Time-Management Clock is a productivity tool that helps you monitor and ma
 
 ## Dependencies
 
-- `psutil`
 - `Pillow`
 - `pystray`
 - `customtkinter`

@@ -1,6 +1,5 @@
 # clock/app_monitor.py
 import time
-import psutil
 import platform
 import sqlite3
 from datetime import date
@@ -20,7 +19,6 @@ from distraction import DetectDistraction
 class AppMonitor:
     def __init__(self, title, db_path, afk_threshold):
         self.app_times = {}  # {app_name: time_in_seconds}
-        self.title = title
         self.db_path = db_path
         self.current_app = None
         self.category = None
@@ -144,24 +142,22 @@ class AppMonitor:
     def _get_focused_app(self):
         """Get the name of the currently focused application."""
         try:
-            win_browswers = ["Chrome", "Edge"]
+            win_browsers = ["Chrome", "Edge"]
             mac_browsers = ["Google Chrome", "Safari"]
             win_name = None
 
             if platform.system() == "Windows":
                 hwnd = win32gui.GetForegroundWindow()
                 win_name = win32gui.GetWindowText(hwnd)
-                if win_name and any(browser in win_name for browser in win_browswers):
+                if win_name and any(browser in win_name for browser in win_browsers):
                     if self.minimize:
                         time.sleep(5)  # Wait for the URL to load
                     url = self._get_browser_url()
                     if url:
                         url = url.split('/')[2] if '//' in url else url.split('/')[0]
                         return url
-                return win_name
             elif platform.system() == "Darwin":
                 active_app = NSWorkspace.sharedWorkspace().frontmostApplication()
-                browser_name = [browser for browser in mac_browsers if browser in active_app.localizedName()]
                 win_name = active_app.localizedName()
                 browser_name = [browser for browser in mac_browsers if browser in win_name]
                 if browser_name:
@@ -171,20 +167,16 @@ class AppMonitor:
                     if url:
                         url = url.split('/')[2] if '//' in url else url.split('/')[0]
                         return url
-                return active_app.localizedName()
-            if win_name == self.title:
-                return None
             return win_name
         except Exception as e:
             print(f"Error detecting focused app: {e}")
         return None
     
     def _minimize_distraction(self, app_name):
+        if self._get_focused_app() != app_name:
+            return
         if platform.system() == "Windows":
             hwnd = win32gui.GetForegroundWindow()
-            pid = win32process.GetWindowThreadProcessId(hwnd)
-            process = psutil.Process(pid[-1])
-            process_name = process.name()
             if self.category == "NONPRODUCTIVE":
                 win32gui.ShowWindow(hwnd, 6)  # Minimize the window
         elif platform.system() == "Darwin":
