@@ -1,73 +1,70 @@
-import tkinter as tk
-from tkinter import messagebox
+import customtkinter as ctk
 import time
-import threading
-from app_monitor import AppMonitor
+from threading import Thread
+from utils import show_ok_popup, show_ok_popup_with_cancel
 
 class StopDistract:
-    def __init__(self, status, response_type, app_monitor):
-        self.status = status
+    def __init__(self, root, response_type, app_monitor):
         self.response_type = response_type
         self.app_monitor = app_monitor
-        if self.status == "UNPRODUCTIVE":
-            self.trigger_response()
-
+        self.root = root
+        self.popup_displayed = False
+        self.check = False
+        self.status = None
+        self.changed = False
+        
+    def start(self):
+        self.check = True
+        Thread(target=self.check_response).start()
+        
+    def stop(self):
+        self.status = None
+        self.check = False
+        
+    def check_response(self):
+        while self.check:
+            if self.status == "PRODUCTIVE":
+                if self.app_monitor.category == "NONPRODUCTIVE" and self.changed:
+                    self.changed = False
+                    self.trigger_response()
+            time.sleep(1)
+        
     def trigger_response(self):
-        if self.response_type == 1:
+        if self.response_type == "low":
             self.show_popup("You are off task!")
-        elif self.response_type == 2:
+        elif self.response_type == "medium":
             self.show_popup_with_cancel("You have 5 seconds until unproductive apps are minimized.")
-        elif self.response_type == 3:
+        elif self.response_type == "high":
             self.show_popup_no_cancel("You have 5 seconds until unproductive apps are minimized.")
 
     def show_popup(self, message):
-        root = tk.Tk()
-        root.withdraw()
-        messagebox.showinfo("Alert", message)
-        root.destroy()
+        show_ok_popup(self.root, message=message)
+        
 
     def show_popup_with_cancel(self, message):
         def on_cancel():
             nonlocal cancel
             cancel = True
-            root.destroy()
-
+            self.root.destroy()
+            
         cancel = False
-        root = tk.Tk()
-        root.withdraw()
-        popup = tk.Toplevel(root)
-        popup.title("Alert")
-        tk.Label(popup, text=message).pack()
-        cancel_button = tk.Button(popup, text="Cancel", command=on_cancel)
-        cancel_button.pack()
-        root.update()
-        root.deiconify()
+        show_ok_popup_with_cancel(self.root, message=message, on_cancel=on_cancel)
 
         def countdown():
             nonlocal cancel
-            for i in range(5, 0, -1):
-                if cancel:
-                    break
+            for _ in range(5, 0, -1):
                 time.sleep(1)
             if not cancel:
                 self.app_monitor.start_minimize()
 
-        threading.Thread(target=countdown).start()
-        root.mainloop()
+        Thread(target=countdown).start()
 
     def show_popup_no_cancel(self, message):
-        root = tk.Tk()
-        root.withdraw()
-        popup = tk.Toplevel(root)
-        popup.title("Alert")
-        tk.Label(popup, text=message).pack()
-        root.update()
-        root.deiconify()
+        show_ok_popup(self.root, message=message)
 
         def countdown():
             for i in range(5, 0, -1):
                 time.sleep(1)
             self.app_monitor.start_minimize()
 
-        threading.Thread(target=countdown).start()
-        root.mainloop()
+        Thread(target=countdown).start()

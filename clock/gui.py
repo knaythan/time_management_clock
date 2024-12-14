@@ -1,5 +1,7 @@
 import os
 import customtkinter as ctk
+import tkinter as tk
+from tkinter import ttk
 from dashboard import ProductivityDashboard
 from focus_mode import FocusMode
 from app_monitor import AppMonitor
@@ -7,13 +9,14 @@ from settings import Settings
 from calendar_view import CalendarView
 import sqlite3
 import platform
+from stop_distract import StopDistract
 
 class SmartClockApp:
     def __init__(self, root):
         self.root = root
         title = "Smart Time-Management Clock"
         self.root.title(title)
-        self.root.geometry("800x600")
+        self.root.geometry("1000x800")
 
         # Initialize core components
         if platform.system() == "Windows":
@@ -21,9 +24,10 @@ class SmartClockApp:
         elif platform.system() == "Darwin":
             self.db_path = os.path.expanduser("~/Library/Application Support/SmartClock/db/usage_data.db")
         self.settings = Settings()
-        self.app_monitor = AppMonitor(title, self.db_path, afk_threshold=self.settings.get("afk_threshold"))
+        self.app_monitor = AppMonitor(self.db_path, afk_threshold=self.settings.get("afk_threshold"))
         self.focus_mode = FocusMode(self.root)
-        self.dashboard = ProductivityDashboard(self.root, self.app_monitor, self.rename_app, self.db_path, self.settings.get("afk_threshold"))
+        self.stop_distract = self.stop_distract = StopDistract(self.root, self.settings.get("reminder"), self.app_monitor)
+        self.dashboard = ProductivityDashboard(self.root, self.app_monitor, self.rename_app, self.db_path, stop_distract=self.stop_distract)
         self.dashboard.settings = self.settings  # Pass settings to the dashboard
         self.calendar_view = CalendarView(self.root, self.show_dashboard)
 
@@ -39,6 +43,7 @@ class SmartClockApp:
 
         # Display initial dashboard
         self.show_dashboard()
+        
 
     def show_dashboard(self):
         """Display the Dashboard View and restart periodic updates."""
@@ -50,9 +55,13 @@ class SmartClockApp:
         button_frame = ctk.CTkFrame(self.root)
         button_frame.pack(pady=10)
 
-        ctk.CTkButton(button_frame, text="Open Calendar", command=self.open_calendar).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(button_frame, text="Settings", command=self.open_settings).pack(side=ctk.LEFT, padx=5)
-        ctk.CTkButton(button_frame, text="Activate Focus Mode", command=self.activate_focus_mode).pack(side=ctk.LEFT, padx=5)
+        button_frame.grid_columnconfigure(0, weight=1)
+        button_frame.grid_columnconfigure(1, weight=1)
+        button_frame.grid_columnconfigure(2, weight=1)
+
+        ctk.CTkButton(button_frame, text="Open Calendar", command=self.open_calendar).grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(button_frame, text="Settings", command=self.open_settings).grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(button_frame, text="Activate Focus Mode", command=self.activate_focus_mode).grid(row=0, column=2, padx=5, pady=5, sticky="ew")
 
 
     def activate_focus_mode(self):
@@ -108,14 +117,22 @@ class SmartClockApp:
         ctk.CTkCheckBox(self.root, text="Enable AFK Detection", variable=afk_detection_var).pack(pady=5)
 
         # Initialize afk_timer_var with a default value
-        afk_timer_var = ctk.IntVar(value=0)
+        afk_timer_var = ctk.StringVar(value=self.settings.get("afk_threshold") or "0")
 
-        # Check if AFK detection is enabled
-        if afk_detection_var.get():
-            # AFK Timer threshold
-            ctk.CTkLabel(self.root, text="AFK Timer Threshold (seconds):").pack(pady=5)
-            afk_timer_var.set(self.settings.get("afk_threshold"))
-            ctk.CTkEntry(self.root, textvariable=afk_timer_var).pack(pady=5)
+        # AFK Timer threshold
+        ctk.CTkLabel(self.root, text="AFK Timer Threshold (seconds):").pack(pady=5)
+        afk_timer_entry = ctk.CTkEntry(self.root, textvariable=afk_timer_var, state="normal" if afk_detection_var.get() else "disabled")
+        afk_timer_entry.pack(pady=5)
+
+        def toggle_afk_timer_entry(*args):
+            state = "normal" if afk_detection_var.get() else "disabled"
+            if state == "disabled":
+                afk_timer_entry.configure(fg_color="gray")
+            else:
+                afk_timer_entry.configure(fg_color=ctk.ThemeManager.theme["CTkEntry"]["fg_color"])
+            afk_timer_entry.configure(state=state)
+
+        afk_detection_var.trace_add("write", toggle_afk_timer_entry)
         
         # Dynamic scheduling options
         ctk.CTkLabel(self.root, text="Dynamic Scheduling:").pack(pady=5)
@@ -141,8 +158,113 @@ class SmartClockApp:
             text="Exit",
             command=self.show_dashboard
         ).pack(side=ctk.LEFT, padx=5)
+
+        # Add button to open classify app popup
+        ctk.CTkButton(
+            button_frame,
+            text="Classify Apps",
+            command=self.open_classify_apps_popup
+        ).pack(side=ctk.LEFT, padx=5)
+
+
+    def open_classify_apps_popup(self):
+        """Open a popup window to classify applications."""
         
-        
+        popup = ctk.CTkToplevel(self.root)
+        popup.title("Classify Applications")
+        popup.geometry("400x300")
+
+        ctk.CTkLabel(popup, text="Classify Applications", font=("Arial", 16)).pack(pady=10)
+
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT app_name FROM usage_data GROUP BY app_name")
+        usage_apps = cursor.fetchall()
+        cursor.execute("SELECT app_name, category FROM classify_app")
+        classified_apps = dict(cursor.fetchall())
+        cursor.execute("SELECT original_name, custom_name FROM app_names")
+        app_nicknames = dict(cursor.fetchall())
+        conn.close()
+
+        app_vars = {}
+        tree_frame = ctk.CTkFrame(popup)
+        tree_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview",
+                        background="#333333",
+                        foreground="white",
+                        fieldbackground="#333333",
+                        font=("Arial", 12),
+                        borderwidth=0,
+                        highlightthickness=0)
+        style.configure("Treeview.Heading",
+                        background="#444444",
+                        foreground="white",
+                        font=("Arial", 12, "bold"))
+        style.map('Treeview', background=[('selected', '#555555')], foreground=[('selected', 'grey')])
+
+        tree = ttk.Treeview(tree_frame, columns=('App', 'Category'), show='headings', selectmode="browse", style="Treeview")
+        tree.heading('App', text='Application')
+        tree.heading('Category', text='Category')
+        tree.pack(fill="both", expand=True)
+
+        for (app_name,) in usage_apps:
+            display_name = app_nicknames.get(app_name, app_name)
+            category = classified_apps.get(app_name, "NONE")
+            app_vars[app_name] = ctk.StringVar(value=category)
+            tree.insert('', 'end', values=(display_name, category))
+
+        def on_tree_select(event):
+            selected_item = tree.selection()[0]
+            display_name, current_category = tree.item(selected_item, 'values')
+            app_name = next(key for key, value in app_nicknames.items() if value == display_name) if display_name in app_nicknames.values() else display_name
+
+            category_popup = ctk.CTkToplevel(popup)
+            category_popup.title("Edit Category")
+            category_popup.geometry("300x200")
+
+            ctk.CTkLabel(category_popup, text=f"Application: {display_name}", font=("Arial", 14)).pack(pady=10)
+            category_var = ctk.StringVar(value=current_category)
+            ctk.CTkLabel(category_popup, text="Select Category:").pack(pady=5)
+            category_dropdown = ctk.CTkOptionMenu(
+                category_popup,
+                values=["Productive", "Unproductive"],
+                variable=category_var
+            )
+            category_dropdown.pack(pady=5)
+
+            def save_category():
+                new_category = category_var.get()
+                tree.item(selected_item, values=(display_name, new_category))
+                category_popup.destroy()
+
+            ctk.CTkButton(category_popup, text="Save", command=save_category).pack(pady=10)
+            category_popup.focus_force()
+            category_popup.transient(popup)
+            popup.wait_window(category_popup)
+
+        tree.bind("<Double-1>", on_tree_select)
+
+        def save_classifications():
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            for item in tree.get_children():
+                display_name, category = tree.item(item, 'values')
+                app_name = next(key for key, value in app_nicknames.items() if value == display_name) if display_name in app_nicknames.values() else display_name
+                cursor.execute(
+                    "INSERT OR REPLACE INTO classify_app (app_name, category) VALUES (?, ?)",
+                    (app_name, category)
+                )
+            conn.commit()
+            conn.close()
+            popup.destroy()
+
+        ctk.CTkButton(popup, text="Save", command=save_classifications).pack(pady=10)
+        popup.focus_force()
+        popup.transient(self.root)
+        self.root.wait_window(popup)
 
 
     def save_settings_with_theme_and_schedule(self, autosave_var, theme_var, mode_var, afk_detection_var, reminder_var, dynamic_schedule_var, afk_threshold_var, update_ui=False, reopen_settings=False):
@@ -163,7 +285,9 @@ class SmartClockApp:
             self.settings.save()
             self.show_restart_popup(reopen_settings)
         self.settings.save()
-        self.app_monitor.afk_threshold = int(afk_threshold_var.get())  # Update AFK threshold in app monitor
+        if afk_threshold_var.get().isdigit():
+            self.settings.update("afk_threshold", int(afk_threshold_var.get()))  # Update AFK threshold in settings
+            self.app_monitor.afk_threshold = self.settings.get("afk_threshold")  # Update AFK threshold in app monitor
 
         if update_ui:
             self.apply_settings()
@@ -286,9 +410,6 @@ class SmartClockApp:
             """
         )
         conn.commit()
-        cursor.execute("SELECT * FROM schedule_times;")
-        apps = cursor.fetchall()
-        print(apps)
         conn.close()
 
     def on_close(self):
